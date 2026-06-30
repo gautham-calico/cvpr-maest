@@ -71,7 +71,7 @@ Spatiotemporal modeling \and Binary classification.}
 Computed tomography (CT) is the workhorse of cross-sectional diagnostic imaging,
 and the past two years have produced a wave of CT \emph{foundation models} that
 aim to provide a single reusable representation for many downstream diagnostic
-tasks~\cite{voco,ctfm,merlin,ctclip,pillar0}. Despite rapid progress, three
+tasks~\cite{voco,ctfm,merlin,ctclip,pillar0}. Despite rapid progress, two
 difficulties persist and are precisely the ones this challenge stresses.
 \emph{(i) Generalization across anatomy and acquisition.} A representation tuned
 on one body region or one scanner population frequently degrades on another;
@@ -79,12 +79,15 @@ the challenge deliberately spans abdomen and chest and multiple source datasets.
 \emph{(ii) Severe class imbalance.} The downstream targets are binary disease
 labels whose positive prevalence is often well below $10\%$, so accuracy is
 uninformative and \emph{balanced accuracy} and AUROC are the metrics of record.
-\emph{(iii) Underexplored adaptation.} How to convert a frozen 3D representation
-into a per-disease decision -- pooling, head design, ROI handling -- is far less
-settled than in 2D natural-image transfer. This paper targets
-\textbf{Task~1 -- Linear Probing (LP)}, which measures the intrinsic
-discriminative power of pre-trained features under a \emph{frozen} backbone: with
-the backbone fixed, how discriminative are the pre-trained features on their own?
+
+\paragraph{P1b -- The Task~1 setting.}
+We address \textbf{Task~1 -- Linear Probing (LP)} of the challenge. In this
+setting the pre-trained backbone is kept \emph{frozen} and only a lightweight
+linear classifier is trained on top of its features, with no backbone
+fine-tuning. Task~1 therefore measures the intrinsic discriminative power of a
+pre-trained representation -- how well the features learned during
+self-supervised pre-training transfer, on their own, to binary CT disease
+classification. Our submission is built entirely for this Task~1 LP setting.
 
 \paragraph{P2 -- Related work.}
 \emph{Vision-only CT foundation models} learn from images alone. VoCo~\cite{voco}
