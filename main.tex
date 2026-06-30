@@ -576,38 +576,6 @@ comparison against whole-volume features, so we make no discrimination claim;
 ROI and non-ROI targets in fact reach comparable validation AUROC
 ($0.685$ vs.\ $0.660$).
 
-\subsection{Qualitative analysis on the validation set}
-For the camera-ready we will include, per anatomical region, one correctly
-classified case (high-confidence true positive with a representative axial slice
-and predicted score) and one failure case with a brief cause analysis. Our
-internal error patterns are consistent across diseases: easy cases are
-organ-scale, high-contrast findings (e.g.\ splenomegaly, fatty liver), whereas
-hard cases are small or low-contrast focal findings (e.g.\ liver
-calcifications, small renal/liver cysts) where a single mean-pooled descriptor
-dilutes a spatially tiny signal, and rare-positive targets where a handful of
-mislabeled or atypical scans dominate the metric. Figure~\ref{fig:qual} shows
-representative validation cases with the model's predicted probability.
-
-\begin{figure}[htbp]
-\centering
-\begin{tabular}{cc}
-  \includegraphics[width=0.40\textwidth]{imgs/qual_success_abdomen.png} &
-  \includegraphics[width=0.40\textwidth]{imgs/qual_failure_abdomen.png} \\[-1pt]
-  \includegraphics[width=0.40\textwidth]{imgs/qual_success_chest.png} &
-  \includegraphics[width=0.40\textwidth]{imgs/qual_failure_chest.png} \\
-\end{tabular}
-\caption{Qualitative validation cases (real maest features; an illustrative
-linear probe gives the score $p$). \textbf{(a)} A clear splenomegaly case is
-correctly flagged ($p{=}0.62$): the finding is organ-scale and high-contrast.
-\textbf{(b)} A liver-calcification case is missed ($p{=}0.45$, below the $0.5$
-operating point): the calcific focus is tiny relative to the mean-pooled
-descriptor. \textbf{(c,d)} Chest targets (COVID-CT and a LUNA25 lung nodule) are
-out-of-distribution -- the encoder was pre-trained on a predominantly abdominal
-corpus and never saw chest content -- illustrating the cross-region gap that
-drives most of the test-set deficit (Sec.~\ref{sec:limitations}).}
-\label{fig:qual}
-\end{figure}
-
 \subsection{Results on the final testing set}
 \label{sec:test}
 Table~\ref{tab:leaderboard} reports the official final-test ranking for the
@@ -704,7 +672,7 @@ Environment setting table is provided & Table~\ref{table:env} \\ \hline
 Training protocol table is provided & Table~\ref{table:training-lp} \\ \hline
 Ablation study & Sec.~\ref{sec:ablation} \\ \hline
 Efficiency (running time) results provided & Tables~\ref{tab:leaderboard},~\ref{tab:results-lp} \\ \hline
-Qualitative example (success and failure) & Fig.~\ref{fig:qual} \\ \hline
+Qualitative example (success and failure) & \tba{} (camera-ready) \\ \hline
 Limitation and future work presented & Yes (Sec.~\ref{sec:limitations}) \\ \hline
 Reference format is consistent & Yes \\ \hline
 Main text $\geq$ 8 pages & \tba{} (check after figures) \\ \hline
