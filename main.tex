@@ -325,21 +325,21 @@ $224^2$ by trilinear interpolation, and \emph{average} the per-window $1024$-d
 descriptors into one volume-level vector. A final window anchored at the last
 slice guarantees full Z coverage when $D$ is not a multiple of the stride.
 Overlapping windows make the descriptor robust to where structures fall relative
-to window boundaries.
+to window boundaries. Rather than encoding one window at a time, we stack $8$
+windows into a single GPU batch, which uses the device far more efficiently and
+speeds up per-case feature extraction.
 
 \paragraph{ROI versus non-ROI targets.}
 Eleven targets are ROI-based (organ-specific): for these the organizers provide a
 foreground organ mask, and we restrict feature extraction to the masked
-sub-volume (next paragraph). The remaining targets are treated globally
-(whole-volume descriptor).
-
-\paragraph{Large-volume / ROI strategy.}
-For ROI targets we read the provided mask, find the Z-range where the mask is
+sub-volume; the remaining targets are treated globally (whole-volume descriptor).
+For an ROI target we read the provided mask, find the Z-range where the mask is
 active, expand it by $\pm 8$ context slices, crop the volume to that range, and
 then apply the same windowed aggregation. This focuses the descriptor on the
 organ of interest (e.g.\ adrenal gland for \emph{adrenal\_hyperplasia}) while
-retaining peri-organ context, and it also shortens the window list, lowering
-runtime. If a mask is empty we fall back to the global descriptor.
+retaining peri-organ context. Cropping also leaves fewer $16$-slice windows to
+pass through the ViT, which lowers per-case compute and runtime. If a mask is
+empty we fall back to the global descriptor.
 
 \paragraph{Linear-probe head.}
 The container emits only frozen $1024$-d features; per challenge protocol, the
@@ -349,16 +349,6 @@ per-target $\ell_2$-regularized logistic regression, sweeping the inverse
 regularization strength $C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$ and
 selecting by validation AUROC. A linear probe has no capacity to compensate for
 a weak backbone, which is exactly why it is a faithful probe of feature quality.
-
-\paragraph{Post-processing.}
-None is applied for the submitted system: the per-target probability is the
-linear-probe output at the default operating point, and a single encoder
-checkpoint (epoch $130$) is used. We deliberately avoided per-target threshold
-tuning -- in our experiments it overfit the small validation set and slightly
-\emph{reduced} AUROC. Inference is kept under budget by (i) ROI cropping, which
-shrinks the window count, (ii) batched window forwarding (batch $8$) on GPU, and
-(iii) pinned BLAS/OMP threads and a resumable, idempotent writer that skips
-already-computed cases.
 
 \subsection{Fine-tuning ablation (analysis only)}
 \label{sec:ft}
@@ -716,8 +706,8 @@ A pipeline/network figure is provided & Fig.~\ref{fig:Network} \\ \hline
 Pre-processing & Sec.~\ref{sec:preproc} \\ \hline
 Strategies for data augmentation & Training protocols \\ \hline
 Strategy for class imbalance & Sec.~3.3 (weighted BCE) \\ \hline
-Strategies to improve inference ($<$40s/case) & Sec.~3.5 (6.27\,s) \\ \hline
-Post-processing & Sec.~3.5 \\ \hline
+Strategies to improve inference ($<$40s/case) & Sec.~\ref{sec:inference} (6.27\,s) \\ \hline
+Post-processing & None applied \\ \hline
 Environment setting table is provided & Table~\ref{table:env} \\ \hline
 Training protocol table is provided & Tables~\ref{table:training-lp},~\ref{table:training-eao} \\ \hline
 Ablation study & Sec.~\ref{sec:ablation} \\ \hline
