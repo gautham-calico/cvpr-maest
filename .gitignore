@@ -1,0 +1,18 @@
+# checkpoints / weights / data — never commit
+*.pth
+*.pt
+*.tar
+*.tar.gz
+*.h5
+*.nii
+*.nii.gz
+checkpoints/
+data/
+outputs/
+inputs/
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+# logs / scratch
+*.log

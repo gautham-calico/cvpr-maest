@@ -1,0 +1,11 @@
+# Inference / feature-extraction container deps (on top of pytorch==2.1.0, cuda 12.1)
+torch==2.1.0
+numpy
+nibabel
+h5py
+timm
+iopath
+simplejson
+# Pre-training / linear-probe extras
+tensorboard
+scikit-learn
