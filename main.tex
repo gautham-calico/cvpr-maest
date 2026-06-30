@@ -46,7 +46,8 @@ ViT-Large spatiotemporal masked autoencoder ($303.6$\,M parameters) is
 pre-trained from scratch on $10{,}819$ unlabeled CT volumes drawn from the
 challenge pre-training corpus. Two design choices drive the representation: a
 \emph{dynamic} masking ratio sampled uniformly from $[0.6, 0.9]$ on every
-forward pass, which acts as an implicit difficulty curriculum, and a coarse
+forward pass, which exposes the encoder to a range of reconstruction
+difficulties rather than a single fixed one, and a coarse
 temporal patch size ($4$ slices) that concentrates capacity on in-plane
 anatomy. At inference the encoder is \emph{frozen}: each volume is processed by
 overlapping $16$-slice windows, and the layer-normalized mean of the patch
@@ -135,8 +136,8 @@ strong frozen descriptor. Our contributions are:
   \item \textbf{A CT-adapted spatiotemporal MAE (MAE-ST)} pre-trained
         \emph{from scratch} on the full $10{,}819$-volume All-Data corpus, with
         two changes that matter empirically: a \emph{dynamic} mask ratio
-        $\sim\mathcal{U}[0.6,0.9]$ (an implicit curriculum) and a coarse
-        temporal patch ($4$ slices).
+        $\sim\mathcal{U}[0.6,0.9]$ (a range of reconstruction difficulties
+        within one run) and a coarse temporal patch ($4$ slices).
   \item \textbf{A frozen feature-extraction recipe} for arbitrary-depth volumes:
         overlapping $16$-slice windows, layer-normalized token-mean pooling, and
         mask-guided ROI restriction for the eleven ROI targets -- all running at
@@ -281,11 +282,14 @@ $16$, so the decoder reconstructs all $16$ input slices.
 
 \paragraph{Why dynamic masking.}
 A fixed high ratio (e.g.\ $90\%$) leaves only $\sim\!157$ visible
-tokens and makes every iteration maximally hard. Sampling $r$ each step instead
-exposes the encoder to a spectrum of difficulties -- from $\sim\!627$ visible
-tokens ($60\%$, rich context) to $\sim\!157$ ($90\%$, aggressive inpainting) --
-acting as a curriculum without an explicit schedule. Empirically this is the
-single largest contributor to feature quality among our design choices
+tokens and makes \emph{every} iteration maximally hard. Sampling
+$r\sim\mathcal{U}[0.6,0.9]$ independently each step instead exposes the encoder
+to a range of reconstruction difficulties -- from $\sim\!627$ visible tokens
+($60\%$, rich context) to $\sim\!157$ ($90\%$, aggressive inpainting) -- within a
+single training run, rather than committing to one fixed difficulty. The
+sampling distribution is stationary across training, so this is difficulty
+\emph{mixing} rather than a scheduled easy-to-hard curriculum. Empirically it is
+the single largest contributor to feature quality among our design choices
 (Sec.~\ref{sec:ablation}).
 
 \paragraph{Global feature from the frozen backbone.}
@@ -353,11 +357,6 @@ in one expression:
 with $m_{ij}\!=\!1$ when sample $i$ is labeled for target $j$. Compound /
 weighted losses of this kind are standard for class imbalance in medical
 imaging~\cite{LossOdyssey,focal}.
-
-\subsection{Coreset selection (not applicable)}
-This submission is the \textbf{All-Data track}: the encoder is pre-trained on the
-full provided pre-training corpus ($10{,}819$ volumes), so no coreset selection
-is performed.
 
 \subsection{Post-processing}
 None is applied for the submitted system: the per-target probability is the
