@@ -524,37 +524,42 @@ non-ROI ($4$)        &         & 0.660 & 0.637 & 4  \\ \hline
 
 \paragraph{Submitted recipe vs.\ baseline.}
 Table~\ref{tab:ablation} compares the submitted MAE-ST recipe against an
-ablated baseline that differs in seven training choices simultaneously
-(dynamic vs.\ fixed $90\%$ mask, rich vs.\ flip-only augmentation, coarse
-vs.\ fine temporal patch, decoder depth, CLS token, training length, and
-precision). The full recipe gains $+0.051$ AUROC ($0.627 \to 0.678$),
+ablated baseline that differs in nine training choices simultaneously
+(dynamic vs.\ fixed $90\%$ mask, raw-pixel vs.\ per-patch-normalized
+reconstruction target, coarse vs.\ fine temporal patch, decoder depth,
+repeated augmentation, base learning rate, gradient clipping,
+warmup/training length, and an expanded augmentation pipeline). The full
+recipe gains $+0.051$ AUROC ($0.627 \to 0.678$),
 improving $12$ of $15$ targets. The largest per-target gains are on
 organ-scale findings: splenomegaly $0.663\!\to\!0.841$ ($+0.178$),
 liver calcifications $0.440\!\to\!0.603$ ($+0.163$, rescued from
-below chance), and atherosclerosis $0.493\!\to\!0.612$ ($+0.119$, no
-longer anti-correlated). Because the two configurations differ on seven
+below chance), and atherosclerosis $0.493\!\to\!0.612$ ($+0.119$, raised
+above chance). Because the two configurations differ on nine
 axes, we cannot isolate the contribution of any single change from this
-comparison; per-axis attribution -- in particular for dynamic masking,
-which we expect to be a major driver -- is left for follow-up work.
+comparison; per-axis attribution -- in particular for dynamic masking and
+the raw-pixel loss target, which we expect to be major drivers -- is left
+for follow-up work.
 
 \begin{table}[htbp]
 \caption{Ablation: submitted MAE-ST recipe vs.\ an ablated baseline (AMOS-15
-internal validation, mean AUROC). The two configurations differ in seven
+internal validation, mean AUROC). The two configurations differ in nine
 training choices listed below; per-design-choice attribution requires further
 runs (Sec.~\ref{sec:limitations}).}\label{tab:ablation}
 \centering
 \begin{tabular}{lc}
 \hline
 Configuration & Mean AUROC \\ \hline
-Ablated baseline (see below) & 0.627 \\
+Ablated baseline & 0.627 \\
 \textbf{MAE-ST submitted (ep130)} & \textbf{0.678} \\ \hline
-\multicolumn{2}{l}{\footnotesize \emph{Differences} (baseline $\rightarrow$
+\multicolumn{2}{l}{\footnotesize \textbf{Differences} (baseline $\rightarrow$
 submitted):
-mask $0.9{\to}\mathcal{U}[0.6,0.9]$;} \\
-\multicolumn{2}{l}{\footnotesize H-flip only $\to$ flip/rot/intensity/noise;
-$t_p$ $2{\to}4$; decoder depth $4{\to}8$;} \\
-\multicolumn{2}{l}{\footnotesize no CLS $\to$ CLS;
-$100{\to}250$ epochs; AMP $\to$ FP32.} \\ \hline
+mask $0.9 \to \mathcal{U}[0.6,0.9]$;} \\
+\multicolumn{2}{l}{\footnotesize loss target per-patch-normalized $\to$ raw
+pixels; $t_p\ 2 \to 4$; decoder depth $4 \to 8$;} \\
+\multicolumn{2}{l}{\footnotesize repeat-aug $1 \to 4$;
+blr $1.5{\times}10^{-4} \to 10^{-3}$; clip-grad $0.02 \to 1.0$;} \\
+\multicolumn{2}{l}{\footnotesize warmup $10 \to 40$ ep; total $100 \to 250$ ep;
+augmentation pipeline expanded.} \\ \hline
 \end{tabular}
 \end{table}
 
@@ -565,9 +570,11 @@ the rationale here.
 were more stable than non-overlapping windows, particularly for findings that can
 fall between window boundaries.
 \emph{(ii) ROI cropping.} For the eleven ROI targets, mask-guided cropping
-(organ range $\pm 8$ slices) both improved discrimination -- concentrating the
-descriptor on the relevant organ -- and reduced runtime by shrinking the window
-list.
+(organ range $\pm 8$ slices) concentrates the descriptor on the relevant organ
+and reduces runtime by shrinking the window list. We did not run a head-to-head
+comparison against whole-volume features, so we make no discrimination claim;
+ROI and non-ROI targets in fact reach comparable validation AUROC
+($0.685$ vs.\ $0.660$).
 
 \subsection{Qualitative analysis on the validation set}
 For the camera-ready we will include, per anatomical region, one correctly
