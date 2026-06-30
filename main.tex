@@ -252,7 +252,7 @@ eleven ROI targets the volume is first cropped to the provided organ mask
 \label{fig:Network}
 \end{figure}
 
-\subsection{Pre-training objective (Task 1)}
+\subsection{Self-supervised pre-training}
 
 \paragraph{CT-as-video formulation.}
 A CT volume of shape $(D,H,W)$ is normalized (Sec.~\ref{sec:preproc}) and a
@@ -295,14 +295,6 @@ multi-scale feature learning and can surpass even the best-tuned fixed
 ratio~\cite{r2mae}. Empirically it is the single largest contributor to feature
 quality among our design choices (Sec.~\ref{sec:ablation}).
 
-\paragraph{Global feature from the frozen backbone.}
-For downstream use the decoder is discarded and the encoder is frozen. Given a
-window, we run the encoder \emph{without} masking, drop the class token, take the
-\emph{mean over the $784$ patch tokens}, and apply the final encoder
-LayerNorm, yielding a $1024$-d vector. We chose mean-pooled patch tokens over the
-class token because, under a reconstructive objective, the class token is never
-supervised, whereas patch tokens directly carry localized anatomical evidence.
-
 \paragraph{Backbone details.}
 ViT-Large, patch $16{\times}16$ (spatial) $\times\,4$ (temporal), embedding
 dimension $1024$, depth $24$, $16$ heads, mlp-ratio $4$, separable
@@ -310,7 +302,21 @@ spatio-temporal position embeddings and a class token. The frozen encoder loaded
 at inference has \textbf{$303.6$\,M parameters} (decoder and mask tokens are
 stripped from the checkpoint and are not shipped in the container).
 
-\subsection{Handling arbitrary-depth volumes: windowed aggregation}
+\subsection{Inference: frozen feature extraction and linear probing}
+\label{sec:inference}
+At inference the decoder is discarded and the encoder is frozen; the system maps
+a full-resolution, arbitrary-depth CT volume to a single descriptor that the
+organizers' linear probe then classifies.
+
+\paragraph{Global feature from the frozen backbone.}
+Given a single $16$-slice
+window, we run the frozen encoder \emph{without} masking, drop the class token, take the
+\emph{mean over the $784$ patch tokens}, and apply the final encoder
+LayerNorm, yielding a $1024$-d vector. We chose mean-pooled patch tokens over the
+class token because, under a reconstructive objective, the class token is never
+supervised, whereas patch tokens directly carry localized anatomical evidence.
+
+\paragraph{Windowed aggregation for arbitrary-depth volumes.}
 \label{sec:agg}
 Clinical CTs have variable depth $D$ (tens to hundreds of slices), but the
 encoder consumes exactly $16$ slices. We therefore slide a $16$-slice window
@@ -320,16 +326,6 @@ descriptors into one volume-level vector. A final window anchored at the last
 slice guarantees full Z coverage when $D$ is not a multiple of the stride.
 Overlapping windows make the descriptor robust to where structures fall relative
 to window boundaries.
-
-\subsection{Classification head and loss}
-\paragraph{Submitted head (LP).}
-The container emits only frozen $1024$-d features; per challenge protocol, the
-\emph{organizers} fit the linear probe. For internal model selection we
-replicate the standard LP recipe: $L_2$-normalize each descriptor and fit a
-per-target $\ell_2$-regularized logistic regression, sweeping the inverse
-regularization strength $C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$ and
-selecting by validation AUROC. A linear probe has no capacity to compensate for
-a weak backbone, which is exactly why it is a faithful probe of feature quality.
 
 \paragraph{ROI versus non-ROI targets.}
 Eleven targets are ROI-based (organ-specific): for these the organizers provide a
@@ -345,9 +341,33 @@ organ of interest (e.g.\ adrenal gland for \emph{adrenal\_hyperplasia}) while
 retaining peri-organ context, and it also shortens the window list, lowering
 runtime. If a mask is empty we fall back to the global descriptor.
 
-\paragraph{Loss for the fine-tuning ablation.}
-The submission is frozen-LP, but for our LP-versus-FT analysis
-(Sec.~\ref{sec:ablation}) we train a shared $15$-way multi-label head with a
+\paragraph{Linear-probe head.}
+The container emits only frozen $1024$-d features; per challenge protocol, the
+\emph{organizers} fit the linear probe. For internal model selection we
+replicate the standard LP recipe: $L_2$-normalize each descriptor and fit a
+per-target $\ell_2$-regularized logistic regression, sweeping the inverse
+regularization strength $C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$ and
+selecting by validation AUROC. A linear probe has no capacity to compensate for
+a weak backbone, which is exactly why it is a faithful probe of feature quality.
+
+\paragraph{Post-processing.}
+None is applied for the submitted system: the per-target probability is the
+linear-probe output at the default operating point, and a single encoder
+checkpoint (epoch $130$) is used. We deliberately avoided per-target threshold
+tuning -- in our experiments it overfit the small validation set and slightly
+\emph{reduced} AUROC. Inference is kept under budget by (i) ROI cropping, which
+shrinks the window count, (ii) batched window forwarding (batch $8$) on GPU, and
+(iii) pinned BLAS/OMP threads and a resumable, idempotent writer that skips
+already-computed cases.
+
+\subsection{Fine-tuning ablation (analysis only)}
+\label{sec:ft}
+The submitted system is frozen linear probing; the following supervised
+fine-tuning setup is used \emph{only} for the LP-versus-FT analysis in
+Sec.~\ref{sec:ablation} and is not part of any challenge entry.
+
+\paragraph{Setup and loss.}
+For the LP-versus-FT analysis we train a shared $15$-way multi-label head with a
 masked, class-balanced binary cross-entropy: each target $j$ is weighted by
 $w_j = n^-_j / n^+_j$ (negatives over positives), and the loss is averaged only
 over \emph{labeled} entries, so missing labels and severe imbalance are handled
@@ -360,16 +380,6 @@ in one expression:
 with $m_{ij}\!=\!1$ when sample $i$ is labeled for target $j$. Compound /
 weighted losses of this kind are standard for class imbalance in medical
 imaging~\cite{LossOdyssey,focal}.
-
-\subsection{Post-processing}
-None is applied for the submitted system: the per-target probability is the
-linear-probe output at the default operating point, and a single encoder
-checkpoint (epoch $130$) is used. We deliberately avoided per-target threshold
-tuning -- in our experiments it overfit the small validation set and slightly
-\emph{reduced} AUROC. Inference is kept under budget by (i) ROI cropping, which
-shrinks the window count, (ii) batched window forwarding (batch $8$) on GPU, and
-(iii) pinned BLAS/OMP threads and a resumable, idempotent writer that skips
-already-computed cases.
 
 % ======================================================================
 \section{Experiments}
