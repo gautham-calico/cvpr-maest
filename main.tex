@@ -88,25 +88,36 @@ of a pre-trained representation: how well the features learned during
 self-supervised pre-training transfer, on their own, to binary CT disease
 classification. Our submission is built entirely for this Task~1 LP setting.
 
-Prior work approaches CT representation learning from several directions.
-Vision-only models learn from images alone: VoCo~\cite{voco} uses a
-volume-contrastive objective on SwinUNETR, CT-FM~\cite{ctfm} and the 3D
-self-supervised framework of Xu~et~al.~\cite{ctfm_xu} scale 3D contrastive and
-reconstruction pretext tasks, and Curia~\cite{curia} targets multi-task
-radiology. Vision-language models instead add report supervision, with
-Merlin~\cite{merlin}, CT-CLIP~\cite{ctclip}, and Pillar-0~\cite{pillar0}
-aligning volumes with text for zero-shot and supervised transfer, while hybrid
-approaches such as SPECTRE~\cite{SPECTRE} combine self-supervised and
-cross-modal pretraining. Orthogonal to these objectives, the masked autoencoder
-family~\cite{mae} reconstructs masked content and has a natural spatiotemporal
-extension, MAE-ST~\cite{maest}, for video. On the adaptation side, linear
-probing~\cite{linearprobing} measures intrinsic feature quality under a frozen
-backbone, whereas LoRA~\cite{lora} and adapters~\cite{adapter} offer
-parameter-efficient fine-tuning when the backbone may move. Existing work,
-however, is dominated by contrastive or report-aligned objectives and by
-CNN/Swin backbones; the behavior of a \emph{pure reconstructive ViT} that models
-the through-plane axis explicitly, under a strict frozen-feature protocol,
-remains comparatively unexplored.
+Prior work approaches CT representation learning from several directions that
+differ mainly in their source of supervision. \emph{Vision-only} models learn
+from image content alone. VoCo~\cite{voco} pre-trains a SwinUNETR with a
+volume-contrastive objective that predicts the spatial overlap between cropped
+sub-volumes, pulling anatomically aligned regions together in feature space;
+CT-FM~\cite{ctfm} and the 3D framework of Xu~et~al.~\cite{ctfm_xu} scale
+contrastive and reconstruction pretext tasks to large unlabeled CT collections;
+and Curia~\cite{curia} consolidates many radiology sources into a single
+multi-task backbone. \emph{Vision-language} models add free-text supervision:
+Merlin~\cite{merlin}, CT-CLIP~\cite{ctclip}, and Pillar-0~\cite{pillar0} learn a
+CLIP-style alignment between CT volumes and their radiology reports, which
+enables zero-shot abnormality detection and stronger supervised transfer, while
+the hybrid SPECTRE~\cite{SPECTRE} combines self-supervised reconstruction with
+cross-modal alignment in a volumetric transformer.
+
+Orthogonal to the supervisory signal is the choice of pretext mechanism and how
+the resulting backbone is adapted. The masked autoencoder~\cite{mae} hides a
+large fraction of image patches and reconstructs them with an asymmetric
+encoder--decoder, learning representations without contrastive pairs or labels;
+its spatiotemporal extension MAE-ST~\cite{maest} masks whole space--time tubes so
+that a video encoder must infer the missing content from surrounding frames.
+Once pre-trained, a backbone must be adapted to a downstream decision: linear
+probing~\cite{linearprobing} trains only a linear classifier on frozen features
+and therefore reports their intrinsic quality, whereas LoRA~\cite{lora} and
+adapters~\cite{adapter} inject a small number of trainable parameters when the
+backbone is allowed to move. Across these lines, the field is dominated by
+contrastive or report-aligned objectives and by CNN/Swin backbones; the behavior
+of a \emph{pure reconstructive ViT} that models the through-plane ($Z$) axis
+explicitly, evaluated under a strict frozen-feature protocol, remains
+comparatively unexplored.
 
 This gap motivates our approach. A CT volume is, geometrically, a stack of axial
 slices with strong continuity along Z -- exactly the structure that video
