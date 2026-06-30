@@ -67,57 +67,57 @@ Spatiotemporal modeling \and Binary classification.}
 % ======================================================================
 \section{Introduction}
 
-\paragraph{P1 -- Background and difficulty.}
 Computed tomography (CT) is the workhorse of cross-sectional diagnostic imaging,
 and the past two years have produced a wave of CT \emph{foundation models} that
 aim to provide a single reusable representation for many downstream diagnostic
-tasks~\cite{voco,ctfm,merlin,ctclip,pillar0}. Despite rapid progress, two
-difficulties persist and are precisely the ones this challenge stresses.
-\emph{(i) Generalization across anatomy and acquisition.} A representation tuned
-on one body region or one scanner population frequently degrades on another;
-the challenge deliberately spans abdomen and chest and multiple source datasets.
-\emph{(ii) Severe class imbalance.} The downstream targets are binary disease
-labels whose positive prevalence is often well below $10\%$, so accuracy is
-uninformative and \emph{balanced accuracy} and AUROC are the metrics of record.
+tasks~\cite{voco,ctfm,merlin,ctclip,pillar0}. Despite this rapid progress, two
+difficulties persist, and they are precisely the ones this challenge stresses.
+The first is generalization across anatomy and acquisition: a representation
+tuned on one body region or one scanner population frequently degrades on
+another, and the challenge deliberately spans abdomen and chest across multiple
+source datasets. The second is severe class imbalance, since the downstream
+targets are binary disease labels whose positive prevalence is often well below
+$10\%$, so raw accuracy is uninformative and \emph{balanced accuracy} and AUROC
+become the metrics of record.
 
-\paragraph{P1b -- The Task~1 setting.}
-We address \textbf{Task~1 -- Linear Probing (LP)} of the challenge. In this
-setting the pre-trained backbone is kept \emph{frozen} and only a lightweight
-linear classifier is trained on top of its features, with no backbone
-fine-tuning. Task~1 therefore measures the intrinsic discriminative power of a
-pre-trained representation -- how well the features learned during
+Against this backdrop, we address \textbf{Task~1 -- Linear Probing (LP)} of the
+challenge, in which the pre-trained backbone is kept \emph{frozen} and only a
+lightweight linear classifier is trained on top of its features, with no
+backbone fine-tuning. This setting isolates the intrinsic discriminative power
+of a pre-trained representation: how well the features learned during
 self-supervised pre-training transfer, on their own, to binary CT disease
 classification. Our submission is built entirely for this Task~1 LP setting.
 
-\paragraph{P2 -- Related work.}
-\emph{Vision-only CT foundation models} learn from images alone. VoCo~\cite{voco}
-uses a volume-contrastive objective on SwinUNETR; CT-FM~\cite{ctfm} and the 3D
+Prior work approaches CT representation learning from several directions.
+Vision-only models learn from images alone: VoCo~\cite{voco} uses a
+volume-contrastive objective on SwinUNETR, CT-FM~\cite{ctfm} and the 3D
 self-supervised framework of Xu~et~al.~\cite{ctfm_xu} scale 3D contrastive and
-reconstruction pretext tasks; Curia~\cite{curia} targets multi-task radiology.
-\emph{Vision-language CT models} add report supervision: Merlin~\cite{merlin},
-CT-CLIP~\cite{ctclip}, and Pillar-0~\cite{pillar0} align volumes with text for
-zero-shot and supervised transfer. \emph{Hybrid} approaches such as
-SPECTRE~\cite{SPECTRE} combine self-supervised and cross-modal pretraining.
-Orthogonally, the \emph{masked autoencoder} family~\cite{mae} reconstructs
-masked content and has a natural spatiotemporal extension, MAE-ST~\cite{maest},
-for video. For \emph{adaptation}, linear probing~\cite{linearprobing} measures
-intrinsic feature quality under a frozen backbone, while LoRA~\cite{lora} and
-adapters~\cite{adapter} offer parameter-efficient fine-tuning when the backbone
-may move. Existing work, however, is dominated by contrastive or
-report-aligned objectives and by CNN/Swin backbones; the behavior of a
-\emph{pure reconstructive ViT} that models the through-plane axis explicitly,
-under a strict frozen-feature protocol, is comparatively unexplored.
+reconstruction pretext tasks, and Curia~\cite{curia} targets multi-task
+radiology. Vision-language models instead add report supervision, with
+Merlin~\cite{merlin}, CT-CLIP~\cite{ctclip}, and Pillar-0~\cite{pillar0}
+aligning volumes with text for zero-shot and supervised transfer, while hybrid
+approaches such as SPECTRE~\cite{SPECTRE} combine self-supervised and
+cross-modal pretraining. Orthogonal to these objectives, the masked autoencoder
+family~\cite{mae} reconstructs masked content and has a natural spatiotemporal
+extension, MAE-ST~\cite{maest}, for video. On the adaptation side, linear
+probing~\cite{linearprobing} measures intrinsic feature quality under a frozen
+backbone, whereas LoRA~\cite{lora} and adapters~\cite{adapter} offer
+parameter-efficient fine-tuning when the backbone may move. Existing work,
+however, is dominated by contrastive or report-aligned objectives and by
+CNN/Swin backbones; the behavior of a \emph{pure reconstructive ViT} that models
+the through-plane axis explicitly, under a strict frozen-feature protocol,
+remains comparatively unexplored.
 
-\paragraph{P3 -- Motivation and contribution.}
-A CT volume is, geometrically, a stack of axial slices with strong continuity
-along Z -- exactly the structure that video transformers exploit between frames.
-We therefore repurpose the spatiotemporal masked autoencoder MAE-ST~\cite{maest}
-for CT, with the Z axis playing the role of time. Our implementation is a direct
-fork of the official MAE-ST codebase~\cite{maest}\footnote{\url{https://github.com/facebookresearch/mae_st}},
-adapted for single-channel CT volumes. This buys us (a) a
-tube-masking reconstruction objective that forces the encoder to infer occluded
-anatomy from 3D context, and (b) a ViT-Large backbone whose patch-token mean is
-a strong frozen descriptor. Our contributions are:
+This gap motivates our approach. A CT volume is, geometrically, a stack of axial
+slices with strong continuity along Z -- exactly the structure that video
+transformers exploit between frames. We therefore repurpose the spatiotemporal
+masked autoencoder MAE-ST~\cite{maest} for CT, with the Z axis playing the role
+of time. Our implementation is a direct fork of the official MAE-ST
+codebase~\cite{maest}\footnote{\url{https://github.com/facebookresearch/mae_st}},
+adapted for single-channel CT volumes. This buys us two things: a tube-masking
+reconstruction objective that forces the encoder to infer occluded anatomy from
+3D context, and a ViT-Large backbone whose patch-token mean is a strong frozen
+descriptor. Our contributions are:
 \begin{enumerate}
   \item \textbf{A CT-adapted spatiotemporal MAE (MAE-ST)} pre-trained
         \emph{from scratch} on the full $10{,}819$-volume All-Data corpus, with
