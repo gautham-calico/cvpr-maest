@@ -60,7 +60,7 @@ $0.678$}. On the final, held-out \emph{test} set
 \textbf{balanced accuracy of $0.600$ and an AUROC of $0.624$} at
 \textbf{$6.27$\,s per case}, ranking $4^{\text{th}}$ on the
 All-Data LP leaderboard. We additionally ablate dynamic masking, multi-window
-aggregation, ROI cropping, and frozen linear probing versus full fine-tuning. \\[4pt]
+aggregation, and ROI cropping. \\[4pt]
 \keywords{CT foundation model \and Linear probing \and Masked autoencoder \and
 Spatiotemporal modeling \and Binary classification.}
 \end{abstract}
@@ -144,8 +144,8 @@ strong frozen descriptor. Our contributions are:
         $6.27$\,s/case, comfortably within the $40$\,s budget.
   \item \textbf{An honest empirical study}: validation results ($0.678$ mean
         AUROC), the final test ranking ($4^{\text{th}}$/6, $0.624$ AUROC,
-        $0.600$ balanced accuracy), and ablations of masking, aggregation, ROI
-        cropping, and LP versus full fine-tuning.
+        $0.600$ balanced accuracy), and ablations of masking, aggregation, and
+        ROI cropping.
 \end{enumerate}
 
 % ======================================================================
@@ -345,31 +345,12 @@ empty we fall back to the global descriptor.
 The container emits only frozen $1024$-d features; per challenge protocol, the
 \emph{organizers} fit the linear probe. For internal model selection we
 replicate the standard LP recipe: $L_2$-normalize each descriptor and fit a
-per-target $\ell_2$-regularized logistic regression, sweeping the inverse
-regularization strength $C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$ and
-selecting by validation AUROC. A linear probe has no capacity to compensate for
-a weak backbone, which is exactly why it is a faithful probe of feature quality.
-
-\subsection{Fine-tuning ablation (analysis only)}
-\label{sec:ft}
-The submitted system is frozen linear probing; the following supervised
-fine-tuning setup is used \emph{only} for the LP-versus-FT analysis in
-Sec.~\ref{sec:ablation} and is not part of any challenge entry.
-
-\paragraph{Setup and loss.}
-For the LP-versus-FT analysis we train a shared $15$-way multi-label head with a
-masked, class-balanced binary cross-entropy: each target $j$ is weighted by
-$w_j = n^-_j / n^+_j$ (negatives over positives), and the loss is averaged only
-over \emph{labeled} entries, so missing labels and severe imbalance are handled
-in one expression:
-\[
-\mathcal{L}_{\text{BCE}}
-= \frac{\sum_{i,j} m_{ij}\,\text{BCE}\big(\hat{y}_{ij}, y_{ij};\, w_j\big)}
-       {\sum_{i,j} m_{ij}} ,
-\]
-with $m_{ij}\!=\!1$ when sample $i$ is labeled for target $j$. Compound /
-weighted losses of this kind are standard for class imbalance in medical
-imaging~\cite{LossOdyssey,focal}.
+per-target $\ell_2$-regularized logistic regression with
+\emph{class-balanced} weighting (to counter the severe positive/negative
+imbalance), sweeping the inverse regularization strength
+$C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$ and selecting by validation AUROC.
+A linear probe has no capacity to compensate for a weak backbone, which is
+exactly why it is a faithful probe of feature quality.
 
 % ======================================================================
 \section{Experiments}
@@ -440,8 +421,8 @@ $[0,1]$. Inference uses no augmentation (no test-time augmentation).
 (epochs $40$ and $130$) and select by internal validation mean AUROC; epoch
 $130$ was submitted.
 
-Tables~\ref{table:training-lp} and~\ref{table:training-eao} give the full
-pre-training/LP protocol and the fine-tuning-ablation protocol respectively.
+Table~\ref{table:training-lp} gives the full pre-training and linear-head
+protocol.
 Figure~\ref{fig:curve} shows the pre-training reconstruction loss and learning-rate
 schedule: the masked-patch MSE drops sharply within the first few epochs and then
 decreases smoothly, while the learning rate follows the $40$-epoch linear warm-up
@@ -480,29 +461,6 @@ Linear-head training time       & $<1$ min/target (logistic regression) \\ \hlin
 Loss function                   & Masked-patch pixel MSE \\ \hline
 Number of model parameters      & $303.6$\,M (frozen encoder) \\ \hline
 Number of FLOPs                 & \tba{}\,G per $16$-slice window \\ \hline
-\end{tabular}
-\end{center}
-\end{table*}
-
-\begin{table*}[!htbp]
-\caption{Training protocol for the \emph{fine-tuning ablation} (LP vs.\ full FT;
-\textbf{not the submitted system}). The submission is frozen linear probing.}
-\label{table:training-eao}
-\begin{center}
-\begin{tabular}{ll}
-\hline
-Backbone                        & MAE-ST ViT-L (our pre-trained encoder) \\ \hline
-Batch size                      & $4$ \\ \hline
-Patch / volume size             & input $16\times224\times224$; patch $16\times16\times4$ \\ \hline
-Total epochs                    & $5$ (stage 1, head only) $+\,25$ (stage 2, full) \\ \hline
-Optimizer                       & AdamW (stage 1 $\beta=0.9,0.999$; stage 2 LLRD) \\ \hline
-Initial learning rate (lr)      & stage 1 $10^{-3}$; stage 2 $10^{-4}$ ($\to 10^{-6}$) \\ \hline
-Lr decay schedule               & Cosine, $3$-epoch warmup; layer-wise decay $0.75$ \\ \hline
-Class-imbalance handling        & Per-target weighted BCE, $w_j=n^-_j/n^+_j$; masked labels \\ \hline
-Training time                   & \tba{} hours ($1\times$ Titan RTX) \\ \hline
-Loss function                   & Masked class-balanced BCE-with-logits \\ \hline
-Regularization                  & drop-path $0.1$, dropout $0.5$, early stop (patience $7$) \\ \hline
-Number of trainable parameters  & $303.6$\,M (full FT) / $0.015$\,M (head only) \\ \hline
 \end{tabular}
 \end{center}
 \end{table*}
@@ -570,8 +528,8 @@ Ablated baseline: fixed $90\%$ mask, H-flip only, $100$ ep, $t_p{=}2$, decoder d
 \end{tabular}
 \end{table}
 
-\paragraph{Aggregation, ROI cropping, and LP vs.\ FT (qualitative summary).}
-Three further design choices were validated internally; we summarize them here
+\paragraph{Aggregation and ROI cropping (qualitative summary).}
+Two further design choices were validated internally; we summarize them here
 and provide numeric cells in the camera-ready (\tba{}).
 \emph{(i) Multi-window overlap.} Overlapping ($50\%$) windows with mean pooling
 were more stable than non-overlapping windows, particularly for findings that can
@@ -580,12 +538,6 @@ fall between window boundaries.
 (organ range $\pm 8$ slices) both improved discrimination -- concentrating the
 descriptor on the relevant organ -- and reduced runtime by shrinking the window
 list.
-\emph{(iii) LP vs.\ full fine-tuning.} Under the challenge's small-data,
-severe-imbalance regime, frozen linear probing was competitive with -- and in our
-runs typically more stable than -- full fine-tuning, which tended to overfit the
-$\sim\!100$-positive targets despite layer-wise LR decay, drop-path, and early
-stopping. This, together with the Task~1 rule against supervised fine-tuning,
-motivated submitting the frozen-LP system.
 
 \subsection{Qualitative analysis on the validation set}
 For the camera-ready we will include, per anatomical region, one correctly
@@ -701,15 +653,15 @@ Author affiliations and ORCID & \tba{} \\ \hline
 Corresponding author email is presented & Yes \\ \hline
 Task and track stated in the abstract (LP All-Data) & Yes \\ \hline
 Validation BalAcc and AUROC in the abstract & Yes \\ \hline
-Introduction has background, related work, motivation & Yes (P1--P3) \\ \hline
+Introduction has background, related work, motivation & Yes \\ \hline
 A pipeline/network figure is provided & Fig.~\ref{fig:Network} \\ \hline
 Pre-processing & Sec.~\ref{sec:preproc} \\ \hline
 Strategies for data augmentation & Training protocols \\ \hline
-Strategy for class imbalance & Sec.~3.3 (weighted BCE) \\ \hline
+Strategy for class imbalance & Sec.~\ref{sec:inference} (class-balanced LP) + balanced-accuracy metric \\ \hline
 Strategies to improve inference ($<$40s/case) & Sec.~\ref{sec:inference} (6.27\,s) \\ \hline
 Post-processing & None applied \\ \hline
 Environment setting table is provided & Table~\ref{table:env} \\ \hline
-Training protocol table is provided & Tables~\ref{table:training-lp},~\ref{table:training-eao} \\ \hline
+Training protocol table is provided & Table~\ref{table:training-lp} \\ \hline
 Ablation study & Sec.~\ref{sec:ablation} \\ \hline
 Efficiency (running time) results provided & Tables~\ref{tab:leaderboard},~\ref{tab:results-lp} \\ \hline
 Qualitative example (success and failure) & Fig.~\ref{fig:qual} \\ \hline
