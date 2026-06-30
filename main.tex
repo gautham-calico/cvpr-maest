@@ -107,8 +107,9 @@ Orthogonal to the supervisory signal is the choice of pretext mechanism and how
 the resulting backbone is adapted. The masked autoencoder~\cite{mae} hides a
 large fraction of image patches and reconstructs them with an asymmetric
 encoder--decoder, learning representations without contrastive pairs or labels;
-its spatiotemporal extension MAE-ST~\cite{maest} masks whole space--time tubes so
-that a video encoder must infer the missing content from surrounding frames.
+its spatiotemporal extension MAE-ST~\cite{maest} randomly masks a large fraction
+of space--time patches so that a video encoder must infer the missing content
+from the surrounding frames.
 Once pre-trained, a backbone must be adapted to a downstream decision: linear
 probing~\cite{linearprobing} trains only a linear classifier on frozen features
 and therefore reports their intrinsic quality, whereas LoRA~\cite{lora} and
@@ -125,10 +126,11 @@ transformers exploit between frames. We therefore repurpose the spatiotemporal
 masked autoencoder MAE-ST~\cite{maest} for CT, with the Z axis playing the role
 of time. Our implementation is a direct fork of the official MAE-ST
 codebase~\cite{maest}\footnote{\url{https://github.com/facebookresearch/mae_st}},
-adapted for single-channel CT volumes. This buys us two things: a tube-masking
-reconstruction objective that forces the encoder to infer occluded anatomy from
-3D context, and a ViT-Large backbone whose patch-token mean is a strong frozen
-descriptor. Our contributions are:
+adapted for single-channel CT volumes. This buys us two things: a masked
+reconstruction objective in which a large, randomly chosen fraction of
+space-time patches is dropped, forcing the encoder to infer the occluded anatomy
+from surrounding 3D context, and a ViT-Large backbone whose patch-token mean is a
+strong frozen descriptor. Our contributions are:
 \begin{enumerate}
   \item \textbf{A CT-adapted spatiotemporal MAE (MAE-ST)} pre-trained
         \emph{from scratch} on the full $10{,}819$-volume All-Data corpus, with
