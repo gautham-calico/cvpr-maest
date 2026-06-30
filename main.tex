@@ -2,7 +2,8 @@
 % CVPR 2026 Workshop: Foundation Models for Medical Vision
 % Challenge: Foundation Models for General CT Image Diagnosis
 % Task 1 (Linear Probing) -- All Data Track
-% Team: maest   |   Method: MAE-ST v2 (video-style spatiotemporal MAE for CT)
+% Team: maest   |   Method: MAE-ST (video-style spatiotemporal MAE for CT;
+%                            forked from facebookresearch/mae_st)
 % ----------------------------------------------------------------------
 % NOTE TO AUTHORS: cells marked \tba{} need a final value or check before
 % camera-ready. See NOTES_FOR_AUTHORS.md for the full list.
@@ -26,18 +27,20 @@
 \title{Computed Tomography as Video: A Spatiotemporal Masked Autoencoder for Linear-Probe CT Diagnosis}
 \titlerunning{CT-as-Video Spatiotemporal MAE for Linear-Probe Diagnosis}
 
-\author{First Author\inst{1}\orcidID{0000-0000-0000-0000}}
-\authorrunning{First Author et al.}
+\author{Gautham Nandakumar\inst{1}\orcidID{0000-0000-0000-0000}}
+\authorrunning{G. Nandakumar}
 \institute{Calico Life Sciences LLC, South San Francisco, CA, USA\\
-\email{corresponding@calicolabs.com}}
+\email{gautham@calicolabs.com}}
 
 \maketitle
 
 % ======================================================================
 \begin{abstract}
-We present \textbf{MAE-ST v2}, our submission to Task~1 (Linear Probing, LP)
+We present \textbf{MAE-ST}, our submission to Task~1 (Linear Probing, LP)
 \textbf{All-Data track} of the CVPR~2026 Challenge on Foundation Models for
-General CT Image Diagnosis. The central idea is to treat a 3D CT volume as a
+General CT Image Diagnosis. Our method is forked from the official MAE-ST
+codebase (\texttt{facebookresearch/mae\_st}) and adapted for single-channel CT
+volumes. The central idea is to treat a 3D CT volume as a
 short \emph{video}: the axial (Z) axis is interpreted as a temporal axis, and a
 ViT-Large spatiotemporal masked autoencoder ($303.6$\,M parameters) is
 pre-trained from scratch on $10{,}819$ unlabeled CT volumes drawn from the
@@ -51,8 +54,7 @@ tokens is averaged across windows to yield a single $1024$-dimensional
 descriptor; for the eleven region-of-interest (ROI) targets the descriptor is
 restricted to the organ mask provided by the organizers. On our validation set
 ($15$ AMOS abdominal targets) the frozen features reach a \textbf{mean AUROC of
-$0.678$}, a $+0.051$ improvement over our video-MAE~v1 baseline ($0.627$) and
-well above frozen VoCo-L ($0.549$). On the final, held-out \emph{test} set
+$0.678$}. On the final, held-out \emph{test} set
 ($17$ binary targets across three datasets) the same system scores a
 \textbf{balanced accuracy of $0.600$ and an AUROC of $0.624$} at
 \textbf{$6.27$\,s per case}, ranking $4^{\text{th}}$ of six teams on the
@@ -106,12 +108,14 @@ under a strict frozen-feature protocol, is comparatively unexplored.
 A CT volume is, geometrically, a stack of axial slices with strong continuity
 along Z -- exactly the structure that video transformers exploit between frames.
 We therefore repurpose the spatiotemporal masked autoencoder MAE-ST~\cite{maest}
-for CT, with the Z axis playing the role of time. This buys us (a) a
+for CT, with the Z axis playing the role of time. Our implementation is a direct
+fork of the official MAE-ST codebase~\cite{maest}\footnote{\url{https://github.com/facebookresearch/mae_st}},
+adapted for single-channel CT volumes. This buys us (a) a
 tube-masking reconstruction objective that forces the encoder to infer occluded
 anatomy from 3D context, and (b) a ViT-Large backbone whose patch-token mean is
 a strong frozen descriptor. Our contributions are:
 \begin{enumerate}
-  \item \textbf{A CT-adapted spatiotemporal MAE (MAE-ST v2)} pre-trained
+  \item \textbf{A CT-adapted spatiotemporal MAE (MAE-ST)} pre-trained
         \emph{from scratch} on the full $10{,}819$-volume All-Data corpus, with
         two changes that matter empirically: a \emph{dynamic} mask ratio
         $\sim\mathcal{U}[0.6,0.9]$ (an implicit curriculum) and a coarse
@@ -121,10 +125,9 @@ a strong frozen descriptor. Our contributions are:
         mask-guided ROI restriction for the eleven ROI targets -- all running at
         $6.27$\,s/case, comfortably within the $40$\,s budget.
   \item \textbf{An honest empirical study}: validation results ($0.678$ mean
-        AUROC, $+0.051$ over our v1) with the model lineage, the final test
-        ranking ($4^{\text{th}}$/6, $0.624$ AUROC, $0.600$ balanced accuracy),
-        and ablations of masking, aggregation, ROI cropping, and LP versus full
-        fine-tuning.
+        AUROC), the final test ranking ($4^{\text{th}}$/6, $0.624$ AUROC,
+        $0.600$ balanced accuracy), and ablations of masking, aggregation, ROI
+        cropping, and LP versus full fine-tuning.
 \end{enumerate}
 
 % ======================================================================
@@ -260,12 +263,13 @@ where $\mathcal{M}$ indexes masked patches. The temporal prediction dimension is
 $16$, so the decoder reconstructs all $16$ input slices.
 
 \paragraph{Why dynamic masking.}
-A fixed high ratio (e.g.\ $90\%$, as in our v1) leaves only $\sim\!157$ visible
+A fixed high ratio (e.g.\ $90\%$) leaves only $\sim\!157$ visible
 tokens and makes every iteration maximally hard. Sampling $r$ each step instead
 exposes the encoder to a spectrum of difficulties -- from $\sim\!627$ visible
 tokens ($60\%$, rich context) to $\sim\!157$ ($90\%$, aggressive inpainting) --
 acting as a curriculum without an explicit schedule. Empirically this is the
-single largest contributor to the v1$\to$v2 gain (Sec.~\ref{sec:ablation}).
+single largest contributor to feature quality among our design choices
+(Sec.~\ref{sec:ablation}).
 
 \paragraph{Global feature from the frozen backbone.}
 For downstream use the decoder is discarded and the encoder is frozen. Given a
@@ -342,7 +346,7 @@ is performed.
 None is applied for the submitted system: the per-target probability is the
 linear-probe output at the default operating point, and a single encoder
 checkpoint (epoch $130$) is used. We deliberately avoided per-target threshold
-tuning -- in our lineage it overfit the small validation set and slightly
+tuning -- in our experiments it overfit the small validation set and slightly
 \emph{reduced} AUROC. Inference is kept under budget by (i) ROI cropping, which
 shrinks the window count, (ii) batched window forwarding (batch $8$) on GPU, and
 (iii) pinned BLAS/OMP threads and a resumable, idempotent writer that skips
@@ -427,8 +431,8 @@ to $9.4\times10^{-5}$ and the subsequent cosine decay. The submitted checkpoint
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{imgs/maest_v2_training_curve.png}
-\caption{MAE-ST v2 (ViT-Large) pre-training. \textbf{Top:} per-epoch masked-patch
+\includegraphics[width=\textwidth]{imgs/maest_training_curve.png}
+\caption{MAE-ST (ViT-Large) pre-training. \textbf{Top:} per-epoch masked-patch
 reconstruction loss (inset: last $50$ epochs, $\sim\!9\times10^{-4}$); the dashed
 line marks the submitted epoch-$130$ checkpoint. \textbf{Bottom:} the per-epoch
 learning rate -- linear warm-up over $40$ epochs to $9.4\times10^{-5}$ followed by
@@ -443,7 +447,7 @@ linear-head training).}
 \begin{center}
 \begin{tabular}{ll}
 \hline
-Pre-trained backbone (if any)   & None -- MAE-ST v2 pre-trained from scratch (All-Data) \\ \hline
+Pre-trained backbone (if any)   & None -- MAE-ST pre-trained from scratch (All-Data) \\ \hline
 Backbone tuning strategy        & Frozen \\ \hline
 Batch size (pre-training)       & $24$ effective ($4$/GPU $\times\,2$ accum $\times\,3$ GPU) \\ \hline
 Patch / volume size             & input $16\times224\times224$; patch $16\times16\times4$ \\ \hline
@@ -468,7 +472,7 @@ Number of FLOPs                 & \tba{}\,G per $16$-slice window \\ \hline
 \begin{center}
 \begin{tabular}{ll}
 \hline
-Backbone                        & MAE-ST v2 ViT-L (our pre-trained encoder) \\ \hline
+Backbone                        & MAE-ST ViT-L (our pre-trained encoder) \\ \hline
 Batch size                      & $4$ \\ \hline
 Patch / volume size             & input $16\times224\times224$; patch $16\times16\times4$ \\ \hline
 Total epochs                    & $5$ (stage 1, head only) $+\,25$ (stage 2, full) \\ \hline
@@ -486,32 +490,13 @@ Number of trainable parameters  & $303.6$\,M (full FT) / $0.015$\,M (head only) 
 
 \subsection{Quantitative results on the validation set}
 
-\paragraph{Validation performance and model lineage.}
-Table~\ref{tab:lineage} reports validation metrics (AMOS-15, abdomen) for every
-candidate backbone we evaluated under the identical frozen-LP protocol. Our
-MAE-ST v2 attains a validation \textbf{mean AUROC of $0.678$}, $+0.051$ over our
-video-MAE v1 ($0.627$) and far above frozen VoCo-L ($0.549$) and VoCo-L
-self-supervised fine-tuned ($0.544$). The two official chest targets are not in
-our validation split, so all per-region validation numbers are abdomen; this also
-explains why the validation AUROC ($0.678$) is higher than the $17$-target
-\emph{test} AUROC ($0.624$, Sec.~\ref{sec:test}), which averages in two unseen
-out-of-region findings.
-
-\begin{table}[htbp]
-\caption{Validation results (AMOS-15, \textbf{abdomen}), frozen linear probing,
-mean over $15$ targets. VoCo-L rows are public-backbone baselines run under our
-pipeline (context only; public weights are not submitted).}
-\label{tab:lineage}
-\centering
-\begin{tabular}{lcc}
-\hline
-Method (frozen backbone + logistic-regression probe) & Mean AUROC & Mean BalAcc \\ \hline
-VoCo-L (frozen)                       & 0.549 & \tba{} \\
-VoCo-L (SSL fine-tuned)               & 0.544 & \tba{} \\
-MAE-ST v1 (fixed $90\%$ mask, video-MAE) & 0.627 & \tba{} \\
-\textbf{MAE-ST v2 (ours, ep130)}      & \textbf{0.678} & \tba{} \\ \hline
-\end{tabular}
-\end{table}
+\paragraph{Validation performance.}
+Under the frozen-LP protocol, MAE-ST attains a validation \textbf{mean AUROC of
+$0.678$} on AMOS-15 (abdomen, mean over $15$ targets). The two official chest
+targets are not in our validation split, so all per-region validation numbers
+are abdomen; this also explains why the validation AUROC ($0.678$) is higher than
+the $17$-target \emph{test} AUROC ($0.624$, Sec.~\ref{sec:test}), which averages
+in two unseen out-of-region findings.
 
 \paragraph{Per-region validation detail.}
 Table~\ref{tab:results-lp} is the challenge-mandated per-region table for the
@@ -529,15 +514,9 @@ equals the abdomen subset; Chest = two official chest targets (to be added).}
 \begin{tabular}{llcccc}
 \hline
 Region & Method & BalAcc & AUROC & Runtime (s) & \# Params (M) \\ \hline
-\multirow{2}{*}{Chest}
-        & VoCo-L (frozen)    & \tba{} & \tba{} & --     & 206 \\
-        & MAE-ST v2 (ours)   & \tba{} & \tba{} & \tba{} & 303.6 \\ \hline
-\multirow{3}{*}{Abdomen}
-        & VoCo-L (frozen)    & \tba{} & 0.549 & --     & 206 \\
-        & MAE-ST v1          & \tba{} & 0.627 & \tba{} & 303.6 \\
-        & \textbf{MAE-ST v2 (ours)}   & \tba{} & \textbf{0.678} & \tba{} & 303.6 \\ \hline
-\multirow{1}{*}{Overall}
-        & \textbf{MAE-ST v2 (ours)} & \tba{} & \textbf{0.678}$^\dagger$ & \tba{} & 303.6 \\ \hline
+Chest   & MAE-ST (ours)            & \tba{} & \tba{}                     & \tba{} & 303.6 \\ \hline
+Abdomen & \textbf{MAE-ST (ours)}   & \tba{} & \textbf{0.678}             & \tba{} & 303.6 \\ \hline
+Overall & \textbf{MAE-ST (ours)}   & \tba{} & \textbf{0.678}$^\dagger$   & \tba{} & 303.6 \\ \hline
 \end{tabular}
 \\[2pt]
 {\footnotesize $^\dagger$ Validation overall currently covers the $15$ abdominal
@@ -547,26 +526,28 @@ targets only; the two chest targets are pending.}
 \subsection{Ablation study}
 \label{sec:ablation}
 
-\paragraph{v1$\to$v2 component changes.}
-Table~\ref{tab:ablation} isolates the changes that took the video-MAE from
-$0.627$ to $0.678$ mean AUROC on AMOS-15. Dynamic masking is the dominant factor;
+\paragraph{Design-choice ablations.}
+Table~\ref{tab:ablation} isolates the contribution of MAE-ST's key design
+choices on AMOS-15. Relative to an ablated configuration (fixed $90\%$ mask,
+minimal augmentation, $t_p{=}2$, decoder depth $4$), the full recipe raises mean
+AUROC from $0.627$ to $0.678$. Dynamic masking is the dominant factor;
 $12$ of $15$ targets improved, with the largest gains on organ-scale findings:
 splenomegaly $0.663\!\to\!0.841$ ($+0.178$), liver calcifications
 $0.440\!\to\!0.603$ ($+0.163$, rescued from below chance), and atherosclerosis
 $0.493\!\to\!0.612$ ($+0.119$, no longer anti-correlated).
 
 \begin{table}[htbp]
-\caption{Ablation: video-MAE v1 $\to$ MAE-ST v2 design changes (AMOS-15 internal
-validation, mean AUROC). Changes are cumulative top-to-bottom; the final row is
-the submitted encoder.}\label{tab:ablation}
+\caption{Ablation of MAE-ST design choices (AMOS-15 internal validation, mean
+AUROC). Changes are cumulative top-to-bottom; the final row is the submitted
+encoder.}\label{tab:ablation}
 \centering
 \begin{tabular}{lc}
 \hline
 Configuration & Mean AUROC \\ \hline
-v1: fixed $90\%$ mask, H-flip only, $100$ ep, $t_p{=}2$, decoder depth $4$ & 0.627 \\
+Ablated baseline: fixed $90\%$ mask, H-flip only, $100$ ep, $t_p{=}2$, decoder depth $4$ & 0.627 \\
 \;\;+ dynamic mask $\mathcal{U}[0.6,0.9]$ + rich augmentation               & \tba{} \\
 \;\;+ coarse temporal patch $t_p{=}4$, decoder depth $8$, CLS, $250$ ep, FP32 & \\
-\textbf{MAE-ST v2 (all changes, ep130)}                                    & \textbf{0.678} \\ \hline
+\textbf{MAE-ST (all changes, ep130)}                                       & \textbf{0.678} \\ \hline
 \end{tabular}
 \end{table}
 
@@ -665,13 +646,13 @@ claims.
 % ======================================================================
 \section{Conclusion}
 We framed a 3D CT volume as a short video and pre-trained a spatiotemporal masked
-autoencoder (MAE-ST v2, ViT-Large, $303.6$\,M parameters) from scratch on
+autoencoder (MAE-ST, ViT-Large, $303.6$\,M parameters) from scratch on
 $10{,}819$ unlabeled CT volumes for the All-Data linear-probing track. A dynamic
 masking ratio and a coarse temporal patch yielded a frozen $1024$-d descriptor
 that, via overlapping-window aggregation and mask-guided ROI cropping, achieved
-$0.678$ mean AUROC on our abdominal validation set -- a $+0.051$ gain over our
-video-MAE baseline -- and $0.600$ balanced accuracy / $0.624$ AUROC at
-$6.27$\,s/case on the final test set ($4^{\text{th}}$/6, All-Data LP). The main
+$0.678$ mean AUROC on our abdominal validation set and $0.600$ balanced accuracy
+/ $0.624$ AUROC at $6.27$\,s/case on the final test set ($4^{\text{th}}$/6,
+All-Data LP). The main
 lesson is methodological: a purely reconstructive ViT with explicit
 through-plane modeling and a simple frozen-feature recipe is a competitive,
 fast, and reproducible CT foundation-model baseline, whose principal remaining
