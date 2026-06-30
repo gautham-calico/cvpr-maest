@@ -57,7 +57,7 @@ restricted to the organ mask provided by the organizers. On our validation set
 $0.678$}. On the final, held-out \emph{test} set
 ($17$ binary targets across three datasets) the same system scores a
 \textbf{balanced accuracy of $0.600$ and an AUROC of $0.624$} at
-\textbf{$6.27$\,s per case}, ranking $4^{\text{th}}$ of six teams on the
+\textbf{$6.27$\,s per case}, ranking $4^{\text{th}}$ on the
 All-Data LP leaderboard. We additionally ablate dynamic masking, multi-window
 aggregation, ROI cropping, and frozen linear probing versus full fine-tuning. \\[4pt]
 \keywords{CT foundation model \and Linear probing \and Masked autoencoder \and
@@ -81,9 +81,10 @@ labels whose positive prevalence is often well below $10\%$, so accuracy is
 uninformative and \emph{balanced accuracy} and AUROC are the metrics of record.
 \emph{(iii) Underexplored adaptation.} How to convert a frozen 3D representation
 into a per-disease decision -- pooling, head design, ROI handling -- is far less
-settled than in 2D natural-image transfer. Task~1 isolates the cleanest version
-of this question: under a \emph{frozen} backbone, how discriminative are the
-pre-trained features themselves?
+settled than in 2D natural-image transfer. This paper targets
+\textbf{Task~1 -- Linear Probing (LP)}, which measures the intrinsic
+discriminative power of pre-trained features under a \emph{frozen} backbone: with
+the backbone fixed, how discriminative are the pre-trained features on their own?
 
 \paragraph{P2 -- Related work.}
 \emph{Vision-only CT foundation models} learn from images alone. VoCo~\cite{voco}
@@ -608,8 +609,7 @@ with $0.600$ balanced accuracy and $0.624$ AUROC at $6.27$\,s/case -- the
 second-fastest runtime among the top four and roughly $5\times$ faster than the
 slowest valid entry. The leading cluster (fomofo / raidium / cemrg) sits at
 $0.705$--$0.714$ AUROC; we attribute most of the gap to cross-region (chest)
-generalization (Sec.~\ref{sec:limitations}). The official Task~2 results were
-still being computed at submission time and will be added in the revision.
+generalization (Sec.~\ref{sec:limitations}).
 
 \begin{table}[htbp]
 \caption{Official final-test ranking, Task~1 LP \textbf{All-Data} track ($17$
