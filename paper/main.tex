@@ -596,32 +596,28 @@ organ-scale, high-contrast findings (e.g.\ splenomegaly, fatty liver), whereas
 hard cases are small or low-contrast focal findings (e.g.\ liver
 calcifications, small renal/liver cysts) where a single mean-pooled descriptor
 dilutes a spatially tiny signal, and rare-positive targets where a handful of
-mislabeled or atypical scans dominate the metric. \tba{}~(figure -- skeleton
-below; export four axial slices to \texttt{imgs/} and uncomment).
+mislabeled or atypical scans dominate the metric. Figure~\ref{fig:qual} shows
+representative validation cases with the model's predicted probability.
 
-% ---------------------------------------------------------------------
-% QUALITATIVE FIGURE SKELETON -- uncomment once the four slice PNGs exist.
-% Needs: imgs/qual_success_abdomen.png, qual_failure_abdomen.png,
-%        imgs/qual_success_chest.png,   qual_failure_chest.png
-% (axial slice + predicted probability vs. ground truth in each panel).
-% \begin{figure}[htbp]
-% \centering
-% \begin{tabular}{cc}
-%   \includegraphics[width=0.32\textwidth]{imgs/qual_success_abdomen.png} &
-%   \includegraphics[width=0.32\textwidth]{imgs/qual_failure_abdomen.png} \\
-%   \footnotesize (a) Abdomen, correct (e.g.\ splenomegaly, $p{=}0.94$) &
-%   \footnotesize (b) Abdomen, miss (e.g.\ liver calcification, $p{=}0.21$) \\[4pt]
-%   \includegraphics[width=0.32\textwidth]{imgs/qual_success_chest.png} &
-%   \includegraphics[width=0.32\textwidth]{imgs/qual_failure_chest.png} \\
-%   \footnotesize (c) Chest, correct &
-%   \footnotesize (d) Chest, miss \\
-% \end{tabular}
-% \caption{Qualitative validation cases. Top: abdomen; bottom: chest. Left:
-% high-confidence correct; right: failure, with predicted probability and the
-% likely cause (small ROI / low contrast / atypical protocol).}
-% \label{fig:qual}
-% \end{figure}
-% ---------------------------------------------------------------------
+\begin{figure}[htbp]
+\centering
+\begin{tabular}{cc}
+  \includegraphics[width=0.40\textwidth]{imgs/qual_success_abdomen.png} &
+  \includegraphics[width=0.40\textwidth]{imgs/qual_failure_abdomen.png} \\[-1pt]
+  \includegraphics[width=0.40\textwidth]{imgs/qual_success_chest.png} &
+  \includegraphics[width=0.40\textwidth]{imgs/qual_failure_chest.png} \\
+\end{tabular}
+\caption{Qualitative validation cases (real maest features; an illustrative
+linear probe gives the score $p$). \textbf{(a)} A clear splenomegaly case is
+correctly flagged ($p{=}0.62$): the finding is organ-scale and high-contrast.
+\textbf{(b)} A liver-calcification case is missed ($p{=}0.45$, below the $0.5$
+operating point): the calcific focus is tiny relative to the mean-pooled
+descriptor. \textbf{(c,d)} Chest targets (COVID-CT and a LUNA25 lung nodule) are
+out-of-distribution -- the encoder was pre-trained on a predominantly abdominal
+corpus and never saw chest content -- illustrating the cross-region gap that
+drives most of the test-set deficit (Sec.~\ref{sec:limitations}).}
+\label{fig:qual}
+\end{figure}
 
 \subsection{Results on the final testing set}
 \label{sec:test}
@@ -717,7 +713,7 @@ Environment setting table is provided & Table~\ref{table:env} \\ \hline
 Training protocol table is provided & Tables~\ref{table:training-lp},~\ref{table:training-eao} \\ \hline
 Ablation study & Sec.~\ref{sec:ablation} \\ \hline
 Efficiency (running time) results provided & Tables~\ref{tab:leaderboard},~\ref{tab:results-lp} \\ \hline
-Qualitative example (success and failure) & \tba{} (camera-ready) \\ \hline
+Qualitative example (success and failure) & Fig.~\ref{fig:qual} \\ \hline
 Limitation and future work presented & Yes (Sec.~\ref{sec:limitations}) \\ \hline
 Reference format is consistent & Yes \\ \hline
 Main text $\geq$ 8 pages & \tba{} (check after figures) \\ \hline
