@@ -364,8 +364,8 @@ across three datasets}, spanning abdomen and chest. For Task~1 we enter the
 \emph{internal} validation pipeline covers the $15$ abdominal (AMOS-derived)
 targets -- $11$ ROI and $4$ non-ROI; the two additional official targets are
 chest findings (a COVID-CT target and a lung-nodule-malignancy target) that are
-absent from our local split, so all internally reported per-region numbers are
-\emph{abdomen}.
+absent from our local split, so all internally reported per-disease numbers are
+\emph{abdominal}.
 
 \noindent\textbf{Classification metrics.}
 \emph{Balanced accuracy} (mean of sensitivity and specificity), robust to
@@ -473,35 +473,50 @@ Number of model parameters      & $303.6$\,M (frozen encoder) \\ \hline
 
 \paragraph{Validation performance.}
 Under the frozen-LP protocol, MAE-ST attains a validation \textbf{mean AUROC of
-$0.678$} on AMOS-15 (abdomen, mean over $15$ targets). The two official chest
-targets are not in our validation split, so all per-region validation numbers
-are abdomen; this also explains why the validation AUROC ($0.678$) is higher than
-the $17$-target \emph{test} AUROC ($0.624$, Sec.~\ref{sec:test}), which averages
-in two unseen out-of-region findings.
+$0.678$} (mean balanced accuracy $0.638$) over the $15$ AMOS abdominal targets.
+This is higher than the $17$-target \emph{test} AUROC ($0.624$,
+Sec.~\ref{sec:test}) because the official test set additionally averages in two
+chest findings (COVID, lung-nodule malignancy) that are absent from our internal
+validation split.
 
-\paragraph{Per-region validation detail.}
-Table~\ref{tab:results-lp} is the challenge-mandated per-region table for the
-validation set. The \emph{abdomen} block is filled from AMOS-15 validation; the
-\emph{chest} block needs the two official chest targets, which are absent from
-our validation split and are left for the camera-ready (after adding the COVID-CT
-and LUNA25 chest sets locally, or from organizer per-target metrics).
+\paragraph{Per-disease validation detail.}
+Table~\ref{tab:results-lp} reports per-target AUROC and balanced accuracy on the
+class-balanced AMOS-15 validation set (epoch-130 submitted checkpoint). The
+per-target dynamic range is large ($0.587\!\to\!0.841$ AUROC), which the mean
+hides: the strongest targets are organ-scale, high-contrast findings
+(splenomegaly, fatty liver), while the weakest are focal/cystic findings
+(liver cyst, liver calcifications, gallstone). Aggregated by region of interest,
+ROI and non-ROI targets are nearly tied ($0.685$ vs.\ $0.660$ mean AUROC).
 
 \begin{table}[htbp]
-\caption{Task~1 LP \textbf{All-Data}, \textbf{validation set}. Mean BalAcc /
-AUROC by region. Abdomen = AMOS-15 ($15$ targets); Overall validation currently
-equals the abdomen subset; Chest = two official chest targets (to be added).}
+\caption{Task~1 LP \textbf{All-Data}, \textbf{validation set}. Per-disease AUROC
+and balanced accuracy on the class-balanced AMOS-15 internal validation split
+(MAE-ST, epoch-130 submitted checkpoint; $303.6$\,M params). Targets sorted by
+AUROC; $n_\text{val}$ is the number of balanced validation cases.}
 \label{tab:results-lp}
 \centering
-\begin{tabular}{llcccc}
+\begin{tabular}{llccc}
 \hline
-Region & Method & BalAcc & AUROC & Runtime (s) & \# Params (M) \\ \hline
-Chest   & MAE-ST (ours)            & \tba{} & \tba{}                     & \tba{} & 303.6 \\ \hline
-Abdomen & \textbf{MAE-ST (ours)}   & \tba{} & \textbf{0.678}             & \tba{} & 303.6 \\ \hline
-Overall & \textbf{MAE-ST (ours)}   & \tba{} & \textbf{0.678}$^\dagger$   & \tba{} & 303.6 \\ \hline
+Target & Type & AUROC & BalAcc & $n_\text{val}$ \\ \hline
+splenomegaly         & ROI     & \textbf{0.841} & 0.729 & 70  \\ \hline
+fatty\_liver          & ROI     & 0.825 & 0.679 & 78  \\ \hline
+cholecystitis        & ROI     & 0.727 & 0.706 & 102 \\ \hline
+adrenal\_hyperplasia  & ROI     & 0.713 & 0.686 & 70  \\ \hline
+colorectal\_cancer    & non-ROI & 0.695 & 0.673 & 52  \\ \hline
+hydronephrosis       & ROI     & 0.692 & 0.703 & 64  \\ \hline
+lymphadenopathy      & non-ROI & 0.677 & 0.625 & 72  \\ \hline
+kidney\_stone         & ROI     & 0.676 & 0.633 & 158 \\ \hline
+ascites              & non-ROI & 0.655 & 0.647 & 68  \\ \hline
+renal\_cyst           & ROI     & 0.639 & 0.605 & 266 \\ \hline
+liver\_lesion         & ROI     & 0.620 & 0.522 & 134 \\ \hline
+atherosclerosis      & non-ROI & 0.612 & 0.603 & 68  \\ \hline
+gallstone            & ROI     & 0.607 & 0.612 & 116 \\ \hline
+liver\_calcifications & ROI     & 0.603 & 0.569 & 72  \\ \hline
+liver\_cyst           & ROI     & 0.587 & 0.578 & 244 \\ \hline
+\textbf{All AMOS-15}  &         & \textbf{0.678} & \textbf{0.638} & 15 \\ \hline
+ROI ($11$)           &         & 0.685 & 0.638 & 11 \\ \hline
+non-ROI ($4$)        &         & 0.660 & 0.637 & 4  \\ \hline
 \end{tabular}
-\\[2pt]
-{\footnotesize $^\dagger$ Validation overall currently covers the $15$ abdominal
-targets only; the two chest targets are pending.}
 \end{table}
 
 \subsection{Ablation study}
