@@ -288,9 +288,12 @@ to a range of reconstruction difficulties -- from $\sim\!627$ visible tokens
 ($60\%$, rich context) to $\sim\!157$ ($90\%$, aggressive inpainting) -- within a
 single training run, rather than committing to one fixed difficulty. The
 sampling distribution is stationary across training, so this is difficulty
-\emph{mixing} rather than a scheduled easy-to-hard curriculum. Empirically it is
-the single largest contributor to feature quality among our design choices
-(Sec.~\ref{sec:ablation}).
+\emph{mixing} rather than a scheduled easy-to-hard curriculum. This is
+consistent with recent evidence that exposing a masked autoencoder to a
+\emph{range} of masking ratios, rather than a single fixed value, encourages
+multi-scale feature learning and can surpass even the best-tuned fixed
+ratio~\cite{r2mae}. Empirically it is the single largest contributor to feature
+quality among our design choices (Sec.~\ref{sec:ablation}).
 
 \paragraph{Global feature from the frozen backbone.}
 For downstream use the decoder is discarded and the encoder is frozen. Given a
