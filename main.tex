@@ -59,8 +59,8 @@ $0.678$}. On the final, held-out \emph{test} set
 ($17$ binary targets across three datasets) the same system scores a
 \textbf{balanced accuracy of $0.600$ and an AUROC of $0.624$} at
 \textbf{$6.27$\,s per case}, ranking $4^{\text{th}}$ on the
-All-Data LP leaderboard. We additionally ablate dynamic masking, multi-window
-aggregation, and ROI cropping. \\[4pt]
+All-Data LP leaderboard. We additionally report a recipe-level ablation against
+an ablated baseline. \\[4pt]
 \keywords{CT foundation model \and Linear probing \and Masked autoencoder \and
 Spatiotemporal modeling \and Binary classification.}
 \end{abstract}
@@ -144,8 +144,8 @@ strong frozen descriptor. Our contributions are:
         $6.27$\,s/case, comfortably within the $40$\,s budget.
   \item \textbf{An honest empirical study}: validation results ($0.678$ mean
         AUROC), the final test ranking ($4^{\text{th}}$/6, $0.624$ AUROC,
-        $0.600$ balanced accuracy), and ablations of masking, aggregation, and
-        ROI cropping.
+        $0.600$ balanced accuracy), and a recipe-level ablation against an
+        ablated baseline.
 \end{enumerate}
 
 % ======================================================================
@@ -292,8 +292,9 @@ sampling distribution is stationary across training, so this is difficulty
 consistent with recent evidence that exposing a masked autoencoder to a
 \emph{range} of masking ratios, rather than a single fixed value, encourages
 multi-scale feature learning and can surpass even the best-tuned fixed
-ratio~\cite{r2mae}. Empirically it is the single largest contributor to feature
-quality among our design choices (Sec.~\ref{sec:ablation}).
+ratio~\cite{r2mae}. We expect it to be a major contributor to feature quality;
+rigorous isolation against the other six changes is left for future work
+(Sec.~\ref{sec:ablation}).
 
 \paragraph{Backbone details.}
 ViT-Large, patch $16{\times}16$ (spatial) $\times\,4$ (temporal), embedding
@@ -396,9 +397,10 @@ Development and runtime environments are summarized in Table~\ref{table:env}.
 \centering
 \begin{tabular}{ll}
 \hline
-System            & Ubuntu 20.04 LTS \\ \hline
-CPU               & \tba{} (e.g., Intel Xeon) \\ \hline
-RAM               & container limit $32$\,GB (\texttt{-m 32G}) \\ \hline
+System            & Ubuntu 20.04 LTS (kernel 5.4.0) \\ \hline
+CPU               & Intel Xeon Gold 6130 @ $2.10$\,GHz ($2{\times}16$ cores, $64$ threads) \\ \hline
+RAM (pre-training)& $96$\,GB (Slurm allocation) \\ \hline
+RAM (inference)   & container limit $32$\,GB (\texttt{-m 32G}) \\ \hline
 GPU (pre-training)& $3\times$ NVIDIA Titan RTX $24$\,GB \\ \hline
 GPU (inference)   & $1\times$ NVIDIA GPU (\texttt{--gpus device=0}) \\ \hline
 CUDA version      & $12.1$ \\ \hline
@@ -417,6 +419,9 @@ additive Gaussian noise ($p{=}0.3$, $\sigma{=}0.02$), with values re-clamped to
 $[0,1]$. Inference uses no augmentation (no test-time augmentation).
 \textbf{(2) Sampling.} Each epoch draws one random $16$-slice window per volume
 (random start index), giving stochastic depth coverage across epochs.
+Repeat-augmentation ($\times4$) replicates each sampled clip into four
+independently augmented views per iteration, so an optimizer step sees $96$
+augmented samples spanning the $24$ unique clips of the effective batch.
 \textbf{(3) Model selection.} We extract features at candidate checkpoints
 (epochs $40$ and $130$) and select by internal validation mean AUROC; epoch
 $130$ was submitted.
@@ -456,7 +461,7 @@ Linear-head epochs              & Logistic regression, $C$-sweep (6 values), no 
 Optimizer                       & AdamW ($\beta=0.9,0.95$), weight decay $0.05$ \\ \hline
 Initial learning rate (lr)      & $9.4\times10^{-5}$ (blr $10^{-3}\times24/256$) \\ \hline
 Lr decay schedule               & Cosine to $0$, $40$-epoch linear warmup \\ \hline
-Pre-training time               & \tba{} hours ($3\times$ Titan RTX) \\ \hline
+Pre-training time               & $\approx 65.8$ hours ($1$ node, $3\times$ Titan RTX) \\ \hline
 Linear-head training time       & $<1$ min/target (logistic regression) \\ \hline
 Loss function                   & Masked-patch pixel MSE \\ \hline
 Number of model parameters      & $303.6$\,M (frozen encoder) \\ \hline
@@ -503,34 +508,45 @@ targets only; the two chest targets are pending.}
 \subsection{Ablation study}
 \label{sec:ablation}
 
-\paragraph{Design-choice ablations.}
-Table~\ref{tab:ablation} isolates the contribution of MAE-ST's key design
-choices on AMOS-15. Relative to an ablated configuration (fixed $90\%$ mask,
-minimal augmentation, $t_p{=}2$, decoder depth $4$), the full recipe raises mean
-AUROC from $0.627$ to $0.678$. Dynamic masking is the dominant factor;
-$12$ of $15$ targets improved, with the largest gains on organ-scale findings:
-splenomegaly $0.663\!\to\!0.841$ ($+0.178$), liver calcifications
-$0.440\!\to\!0.603$ ($+0.163$, rescued from below chance), and atherosclerosis
-$0.493\!\to\!0.612$ ($+0.119$, no longer anti-correlated).
+\paragraph{Submitted recipe vs.\ baseline.}
+Table~\ref{tab:ablation} compares the submitted MAE-ST recipe against an
+ablated baseline that differs in seven training choices simultaneously
+(dynamic vs.\ fixed $90\%$ mask, rich vs.\ flip-only augmentation, coarse
+vs.\ fine temporal patch, decoder depth, CLS token, training length, and
+precision). The full recipe gains $+0.051$ AUROC ($0.627 \to 0.678$),
+improving $12$ of $15$ targets. The largest per-target gains are on
+organ-scale findings: splenomegaly $0.663\!\to\!0.841$ ($+0.178$),
+liver calcifications $0.440\!\to\!0.603$ ($+0.163$, rescued from
+below chance), and atherosclerosis $0.493\!\to\!0.612$ ($+0.119$, no
+longer anti-correlated). Because the two configurations differ on seven
+axes, we cannot isolate the contribution of any single change from this
+comparison; per-axis attribution -- in particular for dynamic masking,
+which we expect to be a major driver -- is left for follow-up work.
 
 \begin{table}[htbp]
-\caption{Ablation of MAE-ST design choices (AMOS-15 internal validation, mean
-AUROC). Changes are cumulative top-to-bottom; the final row is the submitted
-encoder.}\label{tab:ablation}
+\caption{Ablation: submitted MAE-ST recipe vs.\ an ablated baseline (AMOS-15
+internal validation, mean AUROC). The two configurations differ in seven
+training choices listed below; per-design-choice attribution requires further
+runs (Sec.~\ref{sec:limitations}).}\label{tab:ablation}
 \centering
 \begin{tabular}{lc}
 \hline
 Configuration & Mean AUROC \\ \hline
-Ablated baseline: fixed $90\%$ mask, H-flip only, $100$ ep, $t_p{=}2$, decoder depth $4$ & 0.627 \\
-\;\;+ dynamic mask $\mathcal{U}[0.6,0.9]$ + rich augmentation               & \tba{} \\
-\;\;+ coarse temporal patch $t_p{=}4$, decoder depth $8$, CLS, $250$ ep, FP32 & \\
-\textbf{MAE-ST (all changes, ep130)}                                       & \textbf{0.678} \\ \hline
+Ablated baseline (see below) & 0.627 \\
+\textbf{MAE-ST submitted (ep130)} & \textbf{0.678} \\ \hline
+\multicolumn{2}{l}{\footnotesize \emph{Differences} (baseline $\rightarrow$
+submitted):
+mask $0.9{\to}\mathcal{U}[0.6,0.9]$;} \\
+\multicolumn{2}{l}{\footnotesize H-flip only $\to$ flip/rot/intensity/noise;
+$t_p$ $2{\to}4$; decoder depth $4{\to}8$;} \\
+\multicolumn{2}{l}{\footnotesize no CLS $\to$ CLS;
+$100{\to}250$ epochs; AMP $\to$ FP32.} \\ \hline
 \end{tabular}
 \end{table}
 
-\paragraph{Aggregation and ROI cropping (qualitative summary).}
-Two further design choices were validated internally; we summarize them here
-and provide numeric cells in the camera-ready (\tba{}).
+\paragraph{Aggregation and ROI cropping (design rationale).}
+Two further design choices were guided by internal observations; we summarize
+the rationale here.
 \emph{(i) Multi-window overlap.} Overlapping ($50\%$) windows with mean pooling
 were more stable than non-overlapping windows, particularly for findings that can
 fall between window boundaries.
@@ -612,6 +628,9 @@ positional encodings or isotropic resampling are natural extensions.
 \emph{Evaluation.} Internal results are single-seed on a small validation split;
 multi-seed pre-training and bootstrap confidence intervals would tighten the
 claims.
+\emph{Ablation isolation.} Our ablation contrasts the submitted recipe with
+a single all-changes-flipped baseline; per-axis attribution requires
+one-change-at-a-time runs that did not fit the challenge timeline.
 
 % ======================================================================
 \section{Conclusion}
