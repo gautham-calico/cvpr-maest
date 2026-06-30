@@ -143,7 +143,8 @@ strong frozen descriptor. Our contributions are:
         mask-guided ROI restriction for the eleven ROI targets -- all running at
         $6.27$\,s/case, comfortably within the $40$\,s budget.
   \item \textbf{An honest empirical study}: validation results ($0.678$ mean
-        AUROC), the final test ranking ($4^{\text{th}}$/6, $0.624$ AUROC,
+        AUROC), the final test ranking ($4^{\text{th}}$ on the leaderboard,
+        top six shown; $0.624$ AUROC,
         $0.600$ balanced accuracy), and a recipe-level ablation against an
         ablated baseline.
 \end{enumerate}
@@ -579,7 +580,8 @@ ROI and non-ROI targets in fact reach comparable validation AUROC
 \subsection{Results on the final testing set}
 \label{sec:test}
 Table~\ref{tab:leaderboard} reports the official final-test ranking for the
-Task~1 LP All-Data track. Our team (\textbf{maest}) places $4^{\text{th}}$ of six
+Task~1 LP All-Data track. Our team (\textbf{maest}) places $4^{\text{th}}$ on the
+published leaderboard (top six shown)
 with $0.600$ balanced accuracy and $0.624$ AUROC at $6.27$\,s/case -- the
 second-fastest runtime among the top four and roughly $5\times$ faster than the
 slowest valid entry. The leading cluster (fomofo / raidium / cemrg) sits at
@@ -605,22 +607,20 @@ Rank & Team & Balanced Acc & AUROC & Runtime (s) \\ \hline
 
 \subsection{Limitations and future work}
 \label{sec:limitations}
-\emph{Chest generalization.} Our encoder is pre-trained on a predominantly
+Our encoder is pre-trained on a predominantly
 abdominal corpus and never sees the two chest targets in local validation;
 closing the gap to the leaderboard leaders ($\sim\!0.09$ mean AUROC) likely
-requires chest-CT pre-training data and region-balanced sampling.
-\emph{Aggregation.} A single mean-pooled descriptor is a strong but blunt
+requires chest-CT pre-training data and region-balanced sampling. A single
+mean-pooled descriptor is a strong but blunt
 summary; attention pooling or multi-layer feature concatenation may recover
-focal-lesion signal lost to averaging.
-\emph{Resolution and anisotropy.} We resize every volume to $224\times224$
+focal-lesion signal lost to averaging. We resize every volume to $224\times224$
 in-plane and treat the $Z$ axis as time, discarding native pixel spacing in all
 three axes; the model therefore never sees true physical scale. Spacing-aware
 positional encodings or isotropic resampling that preserves the original $x$,
-$y$, and $z$ resolution are natural extensions.
-\emph{Evaluation.} Internal results are single-seed on a small validation split;
+$y$, and $z$ resolution are natural extensions. Internal results are single-seed
+on a small validation split;
 multi-seed pre-training and bootstrap confidence intervals would tighten the
-claims.
-\emph{Ablation isolation.} Our ablation contrasts the submitted recipe with
+claims. Finally, our ablation contrasts the submitted recipe with
 a single all-changes-flipped baseline; per-axis attribution requires
 one-change-at-a-time runs that did not fit the challenge timeline.
 
@@ -632,8 +632,8 @@ $10{,}819$ unlabeled CT volumes for the All-Data linear-probing track. A dynamic
 masking ratio and a coarse temporal patch yielded a frozen $1024$-d descriptor.
 Via overlapping-window aggregation and mask-guided ROI cropping, this descriptor
 achieved $0.678$ mean AUROC on our abdominal validation set and $0.600$ balanced
-accuracy / $0.624$ AUROC at $6.27$\,s/case on the final test set
-($4^{\text{th}}$/6, All-Data LP). The main
+accuracy / $0.624$ AUROC at $6.27$\,s/case on the final test set, ranking
+$4^{\text{th}}$ on the published All-Data LP leaderboard (top six shown). The main
 lesson is methodological: a purely reconstructive ViT with explicit
 through-plane modeling and a simple frozen-feature recipe is a competitive,
 fast, and reproducible CT foundation-model baseline, whose principal remaining
