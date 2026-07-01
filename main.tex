@@ -118,10 +118,12 @@ probing~\cite{linearprobing} trains only a linear classifier on frozen features
 and therefore reports their intrinsic quality, whereas LoRA~\cite{lora} and
 adapters~\cite{adapter} inject a small number of trainable parameters when the
 backbone is allowed to move. Across these lines, the field is dominated by
-contrastive or report-aligned objectives and by CNN/Swin backbones; the behavior
-of a \emph{pure reconstructive ViT} that models the through-plane ($Z$) axis
-explicitly, evaluated under a strict frozen-feature protocol, remains
-comparatively unexplored.
+contrastive or report-aligned objectives and by CNN/Swin backbones; and while
+masked autoencoding on native volumetric ViTs is by now well studied for medical
+images, it is predominantly evaluated by \emph{fine-tuning} for segmentation. The
+behavior of such a reconstructive ViT under a strict \emph{frozen} linear-probe
+protocol, with anisotropic through-plane tokenization, is comparatively less
+charted.
 
 This gap motivates our approach. A CT volume is, geometrically, a stack of axial
 slices with strong continuity along Z -- exactly the structure that video
@@ -266,6 +268,19 @@ to kernel) produces a token grid of size $(T/4)\times(H/16)\times(W/16)=
 4{\times}14{\times}14=784$ tokens of dimension $1024$, to which a learnable
 class token and \emph{separable} spatial/temporal positional embeddings are
 added.
+Because we adopt MAE-ST's spacetime-\emph{agnostic random} masking, our pretext
+task is, in effect, identical to randomly masking 3D patches of a volume:
+whether the third axis is labelled ``depth'' or ``time'' does not change the
+token set or the masking distribution. We therefore make no claim that a video
+formulation \emph{per se} differs from a native volumetric MAE. What
+distinguishes our backbone from the volumetric 3D MAEs common in medical imaging
+is inherited from the video model along two concrete axes: (i) \emph{anisotropic
+patch embedding} -- a $16{\times}16$ in-plane patch but a coarser temporal patch
+of $4$ slices, tokenizing the through-plane ($Z$) axis at a different granularity
+than a cubic $16^3$ patch; and (ii) \emph{factorized} (separable) spatial and
+temporal positional embeddings rather than a single joint 3D embedding. We
+additionally depart from the prevailing fine-tuned-segmentation protocol by
+evaluating the encoder strictly \emph{frozen} under linear probing.
 
 \paragraph{Masked reconstruction.}
 Following MAE~\cite{mae,maest}, on each forward pass we sample a masking ratio
