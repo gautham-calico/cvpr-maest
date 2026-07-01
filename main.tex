@@ -166,84 +166,83 @@ extraction feeding the organizer-run linear probe.
 \begin{tikzpicture}[
   font=\small,
   >={Latex[length=2.2mm]},
-  node distance=5.5mm and 6mm,
-  block/.style={draw, rounded corners=2pt, align=center, minimum height=10mm,
-                minimum width=15mm, inner sep=3pt},
+  node distance=9mm and 34mm,
+  block/.style={draw, rounded corners=2pt, align=center, minimum height=9mm,
+                minimum width=32mm, inner sep=3pt},
   data/.style={block, fill=black!5},
   enc/.style={block, fill=blue!12},
   dec/.style={block, fill=orange!18},
   frozen/.style={block, fill=cyan!15},
   head/.style={block, fill=green!16},
   lbl/.style={font=\footnotesize\itshape},
-  dim/.style={font=\scriptsize\ttfamily, text=black!70, inner sep=1.5pt},
+  dim/.style={font=\scriptsize\ttfamily, text=black!75, fill=white,
+              inner sep=1.5pt},
   arr/.style={->, thick}
 ]
 
-% ---------- Row (a): self-supervised pre-training ----------
-\node[data] (vol) {CT volume\\$(D{\times}H{\times}W)$\\$Z\!\to\!$ time};
-\node[data, right=of vol] (win) {$16$-slice\\window\\$224{\times}224$};
-\node[block, right=of win] (pe) {PatchEmbed\\Conv3D\\$16{\times}16{\times}4$\\$\to 784$ tok.};
-\node[block, right=of pe] (mask) {dynamic\\mask\\$\mathcal{U}[0.6,0.9]$};
-\node[enc, right=of mask] (enc) {ViT-L\\encoder\\(visible)\\$303.6$M};
-\node[dec, right=of enc] (dec) {decoder\\$+$ mask\\tokens};
-\node[data, right=of dec] (rec) {reconstruct\\pixel MSE\\$\mathcal{L}_{\text{MAE}}$};
+% ========== Lane (a): self-supervised pre-training (top-down) ==========
+\node[data] (vol) {CT volume $(D{\times}H{\times}W)$, $Z\!\to\!$ time};
+\node[data, below=of vol]  (win)  {$16$-slice window, $224{\times}224$};
+\node[block, below=of win] (pe)   {PatchEmbed: Conv3D $16{\times}16{\times}4$};
+\node[block, below=of pe]  (mask) {dynamic mask $\mathcal{U}[0.6,0.9]$};
+\node[enc, below=of mask]  (enc)  {ViT-L encoder (visible), $303.6$M};
+\node[dec, below=of enc]   (dec)  {decoder $+$ mask tokens};
+\node[data, below=of dec]  (rec)  {reconstruct: pixel MSE $\mathcal{L}_{\text{MAE}}$};
 
-\draw[arr] (vol)--(win)   node[dim,midway,above]{$1{\times}D{\times}H{\times}W$};
-\draw[arr] (win)--(pe)    node[dim,midway,above]{$1{\times}16{\times}224^2$};
-\draw[arr] (pe)--(mask)   node[dim,midway,above]{$784{\times}1024$};
-\draw[arr] (mask)--(enc)  node[dim,midway,above]{$N_{\text{vis}}{\times}1024$};
-\draw[arr] (enc)--(dec)   node[dim,midway,above]{$N_{\text{vis}}{\times}1024$};
-\draw[arr] (dec)--(rec)   node[dim,midway,above]{$16{\times}224^2$};
+\draw[arr] (vol)--(win)   node[dim,midway]{$1{\times}D{\times}H{\times}W$};
+\draw[arr] (win)--(pe)    node[dim,midway]{$1{\times}16{\times}224^2$};
+\draw[arr] (pe)--(mask)   node[dim,midway]{$784{\times}1024$};
+\draw[arr] (mask)--(enc)  node[dim,midway]{$N_{\text{vis}}{\times}1024$};
+\draw[arr] (enc)--(dec)   node[dim,midway]{$N_{\text{vis}}{\times}1024$};
+\draw[arr] (dec)--(rec)   node[dim,midway]{$16{\times}224^2$};
 
-% small masked-token grid above the mask node (grey = masked, light = visible)
-\begin{scope}[shift={($(mask.north)+(-0.62,0.18)$)}]
+% small masked-token grid left of the mask node (grey = masked, blue = visible)
+\begin{scope}[shift={($(mask.west)+(-1.55,-0.24)$)}]
   \foreach \x in {0,...,5}{
     \foreach \y in {0,...,2}{
       \pgfmathtruncatemacro{\m}{mod(\x*2+\y*3+\x,5)>1 ? 1 : 0}
       \ifnum\m=1
-        \fill[black!40] (\x*0.2,\y*0.2) rectangle ++(0.18,0.18);
+        \fill[black!40] (\x*0.16,\y*0.16) rectangle ++(0.14,0.14);
       \else
-        \fill[blue!25] (\x*0.2,\y*0.2) rectangle ++(0.18,0.18);
+        \fill[blue!25] (\x*0.16,\y*0.16) rectangle ++(0.14,0.14);
       \fi
     }
   }
 \end{scope}
 
-% ---------- Row (b): frozen feature extraction + linear probe ----------
-\node[data, below=20mm of vol] (vol2) {CT volume};
-\node[block, right=of vol2] (roi) {(ROI) organ\\mask: crop\\$\pm8$ slices};
-\node[data, right=of roi] (winN) {overlapping\\$16$-slice win.\\stride $8$};
-\node[frozen, right=of winN] (enc2) {ViT-L\\encoder\\\textbf{frozen}};
-\node[block, right=of enc2] (pool) {LN(mean\\patch\\tokens)};
-\node[block, right=of pool] (avg) {avg over\\windows\\$\to 1024$-d};
-\node[head, right=of avg] (lp) {linear\\probe\\(per target)};
+% ========== Lane (b): frozen feature extraction + linear probe ==========
+\node[data, right=of vol]   (vol2) {CT volume $(D{\times}H{\times}W)$};
+\node[block, below=of vol2] (roi)  {ROI organ mask: crop $\pm8$ slices};
+\node[data, below=of roi]   (winN) {overlapping $16$-slice win., stride $8$};
+\node[frozen, below=of winN](enc2) {ViT-L encoder \textbf{frozen}};
+\node[block, below=of enc2] (pool) {LN(mean patch tokens)};
+\node[block, below=of pool] (avg)  {avg over windows};
+\node[head, below=of avg]   (lp)   {linear probe (per target)};
 
-\draw[arr] (vol2)--(roi)   node[dim,midway,above]{$1{\times}D{\times}H{\times}W$};
-\draw[arr] (roi)--(winN)   node[dim,midway,above]{$1{\times}D'{\times}224^2$};
-\draw[arr] (winN)--(enc2)  node[dim,midway,above]{$N_w{\times}16{\times}224^2$};
-\draw[arr] (enc2)--(pool)  node[dim,midway,above]{$N_w{\times}784{\times}1024$};
-\draw[arr] (pool)--(avg)   node[dim,midway,above]{$N_w{\times}1024$};
-\draw[arr] (avg)--(lp)     node[dim,midway,above]{$1024$};
-% feedback that each window is encoded then pooled
-\draw[arr, dashed] (enc2.south) to[out=-90,in=-90] (pool.south);
+\draw[arr] (vol2)--(roi)   node[dim,midway]{$1{\times}D{\times}H{\times}W$};
+\draw[arr] (roi)--(winN)   node[dim,midway]{$1{\times}D'{\times}224^2$};
+\draw[arr] (winN)--(enc2)  node[dim,midway]{$N_w{\times}16{\times}224^2$};
+\draw[arr] (enc2)--(pool)  node[dim,midway]{$N_w{\times}784{\times}1024$};
+\draw[arr] (pool)--(avg)   node[dim,midway]{$N_w{\times}1024$};
+\draw[arr] (avg)--(lp)     node[dim,midway]{$1024$};
 
 % reuse of pretrained weights: encoder (a) -> frozen encoder (b)
-\draw[->, thick, dashed, gray] (enc.south) to[out=-90,in=90]
-      node[midway,right,lbl,black]{freeze} (enc2.north);
+\draw[->, thick, dashed, gray] (enc.east) to[out=0,in=180]
+      node[midway,above,lbl,black]{freeze} (enc2.west);
 
-% ---------- background panels with stage labels ----------
+% ========== background panels with stage labels ==========
 \begin{scope}[on background layer]
   \node[draw=blue!50, rounded corners, fill=blue!3, inner sep=4mm,
         fit=(vol)(rec), label={[font=\bfseries\footnotesize,blue!60!black]
-        above left:(a) Self-supervised pre-training}] {};
+        above:(a) Self-supervised pre-training}] {};
   \node[draw=green!50!black, rounded corners, fill=green!3, inner sep=4mm,
         fit=(vol2)(lp), label={[font=\bfseries\footnotesize,green!40!black]
-        below left:(b) Frozen feature extraction $+$ linear probe}] {};
+        above:(b) Frozen feature extraction $+$ linear probe}] {};
 \end{scope}
 
 \end{tikzpicture}%
 }
-\caption{Pipeline; tensor shapes above each arrow trace the data transformation
+\caption{Pipeline; tensor shapes on each arrow trace the data transformation
 (channel-first; $N_{\text{vis}}$ visible tokens after masking, $N_w$ stride-$8$
 windows, $D'$ cropped depth). \textbf{(a) Pre-training:} a CT volume is treated as
 a video ($Z\!\to\!$ time); a random $16$-slice window at $224^2$ is patch-embedded
