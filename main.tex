@@ -175,6 +175,7 @@ extraction feeding the organizer-run linear probe.
   frozen/.style={block, fill=cyan!15},
   head/.style={block, fill=green!16},
   lbl/.style={font=\footnotesize\itshape},
+  dim/.style={font=\scriptsize\ttfamily, text=black!70, inner sep=1.5pt},
   arr/.style={->, thick}
 ]
 
@@ -187,12 +188,12 @@ extraction feeding the organizer-run linear probe.
 \node[dec, right=of enc] (dec) {decoder\\$+$ mask\\tokens};
 \node[data, right=of dec] (rec) {reconstruct\\pixel MSE\\$\mathcal{L}_{\text{MAE}}$};
 
-\draw[arr] (vol)--(win);
-\draw[arr] (win)--(pe);
-\draw[arr] (pe)--(mask);
-\draw[arr] (mask)--(enc);
-\draw[arr] (enc)--(dec);
-\draw[arr] (dec)--(rec);
+\draw[arr] (vol)--(win)   node[dim,midway,above]{$1{\times}D{\times}H{\times}W$};
+\draw[arr] (win)--(pe)    node[dim,midway,above]{$1{\times}16{\times}224^2$};
+\draw[arr] (pe)--(mask)   node[dim,midway,above]{$784{\times}1024$};
+\draw[arr] (mask)--(enc)  node[dim,midway,above]{$N_{\text{vis}}{\times}1024$};
+\draw[arr] (enc)--(dec)   node[dim,midway,above]{$N_{\text{vis}}{\times}1024$};
+\draw[arr] (dec)--(rec)   node[dim,midway,above]{$16{\times}224^2$};
 
 % small masked-token grid above the mask node (grey = masked, light = visible)
 \begin{scope}[shift={($(mask.north)+(-0.62,0.18)$)}]
@@ -217,12 +218,12 @@ extraction feeding the organizer-run linear probe.
 \node[block, right=of pool] (avg) {avg over\\windows\\$\to 1024$-d};
 \node[head, right=of avg] (lp) {linear\\probe\\(per target)};
 
-\draw[arr] (vol2)--(roi);
-\draw[arr] (roi)--(winN);
-\draw[arr] (winN)--(enc2);
-\draw[arr] (enc2)--(pool);
-\draw[arr] (pool)--(avg);
-\draw[arr] (avg)--(lp);
+\draw[arr] (vol2)--(roi)   node[dim,midway,above]{$1{\times}D{\times}H{\times}W$};
+\draw[arr] (roi)--(winN)   node[dim,midway,above]{$1{\times}D'{\times}224^2$};
+\draw[arr] (winN)--(enc2)  node[dim,midway,above]{$N_w{\times}16{\times}224^2$};
+\draw[arr] (enc2)--(pool)  node[dim,midway,above]{$N_w{\times}784{\times}1024$};
+\draw[arr] (pool)--(avg)   node[dim,midway,above]{$N_w{\times}1024$};
+\draw[arr] (avg)--(lp)     node[dim,midway,above]{$1024$};
 % feedback that each window is encoded then pooled
 \draw[arr, dashed] (enc2.south) to[out=-90,in=-90] (pool.south);
 
@@ -242,18 +243,21 @@ extraction feeding the organizer-run linear probe.
 
 \end{tikzpicture}%
 }
-\caption{Pipeline. \textbf{(a) Pre-training:} a CT volume is treated as a video
-($Z\!\to\!$ time); a random $16$-slice window at $224^2$ is patch-embedded with a
-$16{\times}16$ spatial / $4$-slice temporal kernel into $4{\times}14{\times}14{=}784$
-tokens, a dynamic fraction ($60$--$90\%$, grey squares) is masked, the ViT-Large
-encoder sees only the visible tokens (blue squares), and a lightweight decoder
+\caption{Pipeline; tensor shapes above each arrow trace the data transformation
+(channel-first; $N_{\text{vis}}$ visible tokens after masking, $N_w$ stride-$8$
+windows, $D'$ cropped depth). \textbf{(a) Pre-training:} a CT volume is treated as
+a video ($Z\!\to\!$ time); a random $16$-slice window at $224^2$ is patch-embedded
+with a $16{\times}16$ spatial / $4$-slice temporal kernel into
+$4{\times}14{\times}14{=}784$ tokens of width $1024$, a dynamic fraction
+($60$--$90\%$, grey squares) is masked, the ViT-Large encoder sees only the
+$N_{\text{vis}}$ visible tokens (blue squares), and a lightweight decoder
 reconstructs the masked voxels under a pixel-MSE loss. \textbf{(b) Feature
-extraction (frozen):} the trained encoder is frozen; a volume is tiled into
+extraction (frozen):} the trained encoder is frozen; a volume is tiled into $N_w$
 overlapping $16$-slice windows (stride $8$), each window yields a
-layer-normalized patch-token mean, and the per-window vectors are averaged into a
-single $1024$-d descriptor on which the organizers train a linear probe. For the
-eleven ROI targets the volume is first cropped to the provided organ mask
-($\pm8$ context slices).}
+layer-normalized patch-token mean ($N_w{\times}1024$), and the per-window vectors
+are averaged into a single $1024$-d descriptor on which the organizers train a
+linear probe. For the eleven ROI targets the volume is first cropped to the
+provided organ mask ($\pm8$ context slices).}
 \label{fig:Network}
 \end{figure}
 
