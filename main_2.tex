@@ -67,6 +67,7 @@
 \usepackage{amsmath}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
+\usepackage{xurl} % allow line breaks anywhere in URLs / file names
 \usepackage[pagebackref=true,breaklinks=true,colorlinks,bookmarks=false]{hyperref}
 
 % Placeholder marker for numbers still to be filled / verified.
@@ -682,7 +683,8 @@ enumerated in the lower panel of Table~\ref{tab:ablation}, spanning the masking
 distribution, the tokenization and temporal prediction target, the decoder, the
 reconstruction target, the optimizer schedule and gradient clipping, the training
 length, the effective batch size and the augmentation pipeline (including
-repeated augmentation).
+repeated augmentation). Both runs pre-train on the identical set of
+$10{,}819$ volumes, so the training data is not among the differences.
 The full recipe gains $+0.051$ AUROC ($0.627 \to 0.678$), improving $12$ of $15$
 targets. The largest per-target gains are on organ-scale findings: splenomegaly
 $0.663\!\to\!0.841$ ($+0.178$), liver calcifications $0.440\!\to\!0.603$
@@ -712,10 +714,11 @@ training-length effect either.
 % ABLATION TABLE SOURCE. Both columns are read from the args saved inside
 % the checkpoints: v1 = job 15124346, checkpoints/ct_maest_pretrain/
 % checkpoint-00099.pth (12 GPUs); v2 = job 15326473 (3 GPUs). Both runs use
-% a class token and FP32, so those are NOT differences. Augmentation row for
-% v1 is from PROJECT_STATUS.md. The runs also used different file lists
-% (train_files.txt vs flare_train_files.txt) -- not listed as a difference
-% pending a check that their contents differ.
+% a class token and FP32, so those are NOT differences. v1 augmentation
+% (h-flip only) verified from the v1 mae_st/dataset_ct_maest.py (2026-03-09);
+% v2 from mae_st_v2/dataset_ct_maest.py (2026-03-17). The two runs' file lists
+% (train_files.txt, flare_train_files.txt) are byte-identical: same 10,819
+% FLARE volumes, so pre-training data is NOT a difference.
 % ----------------------------------------------------------------------
 \begin{table}[htbp]
 \caption{Recipe-level ablation: submitted MAE-ST recipe vs.\ our earlier
@@ -806,8 +809,8 @@ aggregation rule is not stated in the public challenge materials: the released
 evaluation code computes the metrics for each target independently and writes
 one row per target without combining
 them,\footnote{\url{https://github.com/kmin940/CVPR26-3DCTFMCompetition}
-(\texttt{cvpr26\_eval\_metrics-dev.py},
-\texttt{cvpr26\_organize\_eval\_metrics\_and\_predictions.py}); the leaderboard
+(\nolinkurl{cvpr26_eval_metrics-dev.py},
+\nolinkurl{cvpr26_organize_eval_metrics_and_predictions.py}); the leaderboard
 scoring program is not published.} while the leaderboard reports a single
 balanced accuracy and AUROC per team, so the per-target values must be averaged
 somewhere in the scoring program. A macro mean over targets is the reading
