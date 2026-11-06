@@ -404,10 +404,9 @@ $[D-16,\,D)$. The tail window is therefore anchored to the end of the volume and
 simply overlaps its predecessor by more than $8$ slices -- no zero- or
 edge-padding is used, and no slice is dropped. Padding is applied only in the
 degenerate case $D<16$, where the volume is extended to $16$ slices by
-replicating its last slice (\texttt{mode=edge}). Overlapping windows make the
-descriptor robust to where structures fall relative to window boundaries. Rather than encoding one window at a time, we stack $8$
-windows into a single GPU batch, which uses the device far more efficiently and
-speeds up per-case feature extraction.
+replicating its last slice (\texttt{mode=edge}; pre-training tiles instead, Sec.~\ref{sec:preproc}). Overlapping windows make the
+descriptor robust to where structures fall relative to window boundaries. We encode $8$ windows per GPU batch to speed up per-case
+feature extraction.
 
 \paragraph{ROI versus non-ROI targets.}
 Eleven targets are ROI-based (organ-specific): for these the organizers provide a
@@ -628,9 +627,9 @@ atherosclerosis      & non-ROI & 0.612 & 0.603 & 68  \\ \hline
 gallstone            & ROI     & 0.607 & 0.612 & 116 \\ \hline
 liver\_calcifications & ROI     & 0.603 & 0.569 & 72  \\ \hline
 liver\_cyst           & ROI     & 0.587 & 0.578 & 244 \\ \hline
-\textbf{All AMOS-15}  &         & \textbf{0.678} & \textbf{0.638} & 15 \\ \hline
-ROI ($11$)           &         & 0.685 & 0.638 & 11 \\ \hline
-non-ROI ($4$)        &         & 0.660 & 0.637 & 4  \\ \hline
+\textbf{All AMOS-15}  &         & \textbf{0.678} & \textbf{0.638} & -- \\ \hline
+ROI ($11$)           &         & 0.685 & 0.638 & -- \\ \hline
+non-ROI ($4$)        &         & 0.660 & 0.637 & -- \\ \hline
 \end{tabular}
 \end{table}
 
@@ -837,7 +836,7 @@ selection-optimistic. A purely reconstructive ViT with a simple frozen-feature
 recipe is thus a fast, reproducible CT foundation-model baseline; its
 $0.08$--$0.09$ AUROC gap to the leaders lies partly in chest generalization and
 partly on abdominal targets, which a leak-free selection protocol would have
-exposed before submission.
+partly exposed.
 
 \subsubsection{Acknowledgements.}
 We thank the data owners for making the medical images publicly available and
