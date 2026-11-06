@@ -7,6 +7,54 @@
 % ----------------------------------------------------------------------
 % NOTE TO AUTHORS: cells marked \tba{} need a final value or check before
 % camera-ready. See NOTES_FOR_AUTHORS.md for the full list.
+% ----------------------------------------------------------------------
+% REVISION 2 -- addresses the three OpenReview reviews (ReNA, udzJ, 5vvC).
+% Text-only; no number in the paper changed except where it was wrong.
+%   Factual corrections
+%     * visible-token counts: 627/157 -> 313/78  (models_mae.py: the encoder
+%       sees int(784*(1-r)), so r=0.6 -> 313 and r=0.9 -> 78; the "4x more
+%       context" ratio is unchanged, 313/78 = 4.0).           [ReNA]
+%     * runtime rank: "second-fastest among the top four" -> third-fastest
+%       (4.393, 4.467, 6.273, 9.414).                          [ReNA]
+%     * Table 5 rank column typo: raidium was listed as rank 1, now 2.
+%     * Fig. 2 caption: training ran to epoch 134, not 133 (last logged epoch
+%       in the pre-training log is 134; last checkpoint written is 130).
+%   Consistency
+%     * the ablation difference count is now ELEVEN everywhere (abstract,
+%       Sec. 2.1 "ten others", Sec. 3.4, Table 4, limitations, conclusion),
+%       verified against the args saved in the v1 checkpoint (job 15124346,
+%       checkpoint-00099.pth) and the v2 run (job 15326473). [ReNA, 5vvC]
+%     * epoch-40 mean AUROC filled in: 0.646 (eval_v2_ep40_15327806.log).
+%     * Table 4 difference list replaced -- see the comment above that table.
+%   Claims softened to match the evidence                      [ReNA, udzJ, 5vvC]
+%     * abstract / contribution 1 / Sec. 2.1 / conclusion no longer present
+%       dynamic masking or the coarse temporal patch as demonstrated drivers.
+%   New material answering reviewer questions
+%     * Sec. 3.1 "Train/validation split": the split is organizer-provided
+%       (the `split` column of the released per-target label CSVs); val is
+%       exactly 50% positive for all 15 targets, train is 6.4-50%.    [udzJ Q2]
+%     * Sec. 2.2: tail window is anchored at [D-16, D), never padded; edge
+%       replication only when D < 16; ROI range re-centred if < 16 slices.
+%                                                                     [udzJ Q1]
+%     * Sec. 3.2 (3)+(4): stopping criterion (no validation signal; manual stop
+%       on the loss plateau after epoch 134; schedule truncated, not annealed)
+%       and why epochs 40 and 130 were the candidates.                [udzJ Q4]
+%     * Sec. 2.2 "Linear-probe head" + Table 3 caption: C and checkpoint were
+%       both selected on the reported split -> values are selection-optimistic
+%       upper bounds; BalAcc threshold is 0.5 and equals accuracy on a balanced
+%       split.                                                        [5vvC W2]
+%     * Sec. 3.6 states the aggregation rule as an explicit assumption, notes
+%       that the organizers do not publish it (their eval code computes
+%       per-target metrics and never aggregates; the scoring program is not
+%       released), and shows the decomposition is insensitive to it: macro mean
+%       -> chest would need 0.219 / shortfall 0.037; sample-weighted -> 0.290 /
+%       0.034. Either way chest cannot absorb the gap.            [5vvC W1(a)]
+%     * NEW Sec. 3.6 + Table 6: quantitative decomposition of the 0.678 -> 0.624
+%       difference. Chest-at-chance explains only 0.021 of the 0.054; the
+%       implied abdominal test mean is ~0.641. Replaces the old claim that the
+%       two chest targets explain the whole gap.                      [5vvC W1]
+%     * Limitations restructured into Evaluation / Attribution / Generalization,
+%       naming the exact follow-up runs that would settle each point.
 % ======================================================================
 \documentclass[runningheads]{llncs}
 
@@ -46,12 +94,13 @@ volumes. The central idea is to treat a 3D CT volume as a
 short \emph{video}: the axial (Z) axis is interpreted as a temporal axis, and a
 ViT-Large spatiotemporal masked autoencoder ($303.6$\,M parameters) is
 pre-trained from scratch on $10{,}819$ unlabeled CT volumes drawn from the
-challenge pre-training corpus. Two design choices drive the representation: a
-\emph{dynamic} masking ratio sampled uniformly from $[0.6, 0.9]$ on every
-forward pass, which exposes the encoder to a range of reconstruction
-difficulties rather than a single fixed one, and a coarse
+challenge pre-training corpus. Two design choices distinguish the recipe from a
+default MAE-ST configuration: a \emph{dynamic} masking ratio sampled uniformly
+from $[0.6, 0.9]$ on every forward pass, which exposes the encoder to a range of
+reconstruction difficulties rather than a single fixed one, and a coarse
 temporal patch size ($4$ slices) that concentrates capacity on in-plane
-anatomy. At inference the encoder is \emph{frozen}: each volume is processed by
+anatomy. Our ablation varies eleven settings at once, so it measures the recipe as
+a whole and we do not attribute the gain to either choice individually. At inference the encoder is \emph{frozen}: each volume is processed by
 overlapping $16$-slice windows, and the layer-normalized mean of the patch
 tokens is averaged across windows to yield a single $1024$-dimensional
 descriptor; for the eleven region-of-interest (ROI) targets the descriptor is
@@ -62,7 +111,8 @@ $0.678$}. On the final, held-out \emph{test} set
 \textbf{balanced accuracy of $0.600$ and an AUROC of $0.624$} at
 \textbf{$6.27$\,s per case}, ranking $4^{\text{th}}$ on the
 All-Data LP leaderboard. We additionally report a recipe-level ablation against
-an ablated baseline. Code and configurations are available at
+an earlier configuration, and a decomposition of the validation-to-test gap.
+Code and configurations are available at
 \url{https://github.com/gautham-calico/cvpr-maest}. \\[4pt]
 \keywords{CT foundation model \and Linear probing \and Masked autoencoder \and
 Spatiotemporal modeling \and Binary classification.}
@@ -137,12 +187,15 @@ reconstruction objective in which a large, randomly chosen fraction of
 space-time patches is dropped, forcing the encoder to infer the occluded anatomy
 from surrounding 3D context, and a ViT-Large backbone whose patch-token mean is a
 strong frozen descriptor. Our contributions are:
+\label{sec:intro-contrib}
 \begin{enumerate}
   \item \textbf{A CT-adapted spatiotemporal MAE (MAE-ST)} pre-trained
         \emph{from scratch} on the full $10{,}819$-volume All-Data corpus, with
-        two changes that matter empirically: a \emph{dynamic} mask ratio
-        $\sim\mathcal{U}[0.6,0.9]$ (a range of reconstruction difficulties
-        within one run) and a coarse temporal patch ($4$ slices).
+        two design choices we adopt and evaluate only as part of the full
+        recipe: a \emph{dynamic} mask ratio $\sim\mathcal{U}[0.6,0.9]$ (a range
+        of reconstruction difficulties within one run) and a coarse temporal
+        patch ($4$ slices). We make no component-level attribution claim for
+        either (Sec.~\ref{sec:ablation}).
   \item \textbf{A frozen feature-extraction recipe} for arbitrary-depth volumes:
         overlapping $16$-slice windows, layer-normalized token-mean pooling, and
         mask-guided ROI restriction for the eleven ROI targets -- all running at
@@ -150,8 +203,9 @@ strong frozen descriptor. Our contributions are:
   \item \textbf{An honest empirical study}: validation results ($0.678$ mean
         AUROC), the final test ranking ($4^{\text{th}}$ on the leaderboard,
         top six shown; $0.624$ AUROC,
-        $0.600$ balanced accuracy), and a recipe-level ablation against an
-        ablated baseline.
+        $0.600$ balanced accuracy), a recipe-level ablation against an earlier
+        configuration, and an explicit account of where the internal validation
+        estimate is optimistic (Sec.~\ref{sec:valtest}).
 \end{enumerate}
 
 % ======================================================================
@@ -304,20 +358,21 @@ where $\mathcal{M}$ indexes masked patches. The temporal prediction dimension is
 $16$, so the decoder reconstructs all $16$ input slices.
 
 \paragraph{Why dynamic masking.}
-A fixed high ratio (e.g.\ $90\%$) leaves only $\sim\!157$ visible
-tokens and makes \emph{every} iteration maximally hard. Sampling
-$r\sim\mathcal{U}[0.6,0.9]$ independently each step instead exposes the encoder
-to a range of reconstruction difficulties -- from $\sim\!627$ visible tokens
-($60\%$, rich context) to $\sim\!157$ ($90\%$, aggressive inpainting) -- within a
-single training run, rather than committing to one fixed difficulty. The
-sampling distribution is stationary across training, so this is difficulty
-\emph{mixing} rather than a scheduled easy-to-hard curriculum. This is
-consistent with recent evidence that exposing a masked autoencoder to a
-\emph{range} of masking ratios, rather than a single fixed value, encourages
-multi-scale feature learning and can surpass even the best-tuned fixed
-ratio~\cite{r2mae}. We expect it to be a major contributor to feature quality;
-rigorous isolation against the other six changes is left for future work
-(Sec.~\ref{sec:ablation}).
+The encoder sees $\lfloor 784\,(1-r)\rfloor$ tokens, so a fixed high ratio
+(e.g.\ $90\%$) leaves only $78$ visible tokens and makes \emph{every} iteration
+maximally hard. Sampling $r\sim\mathcal{U}[0.6,0.9]$ independently each step
+instead exposes the encoder to a range of reconstruction difficulties -- from
+$313$ visible tokens ($60\%$, rich context) to $78$ ($90\%$, aggressive
+inpainting), a $4\times$ spread in available context -- within a single training
+run, rather than committing to one fixed difficulty. The sampling distribution
+is stationary across training, so this is difficulty \emph{mixing} rather than a
+scheduled easy-to-hard curriculum. This is consistent with recent evidence that
+exposing a masked autoencoder to a \emph{range} of masking ratios, rather than a
+single fixed value, encourages multi-scale feature learning and can surpass even
+the best-tuned fixed ratio~\cite{r2mae}. That evidence is our motivation for
+adopting dynamic masking, not evidence about our own encoder: our ablation
+changes this setting together with ten others (Sec.~\ref{sec:ablation}), so we
+cannot quantify its individual contribution here and do not claim one.
 
 \paragraph{Backbone details.}
 ViT-Large, patch $16{\times}16$ (spatial) $\times\,4$ (temporal), embedding
@@ -346,10 +401,15 @@ Clinical CTs have variable depth $D$ (tens to hundreds of slices), but the
 encoder consumes exactly $16$ slices. We therefore slide a $16$-slice window
 along Z with \textbf{stride $8$ ($50\%$ overlap)}, resize each window in-plane to
 $224^2$ by trilinear interpolation, and \emph{average} the per-window $1024$-d
-descriptors into one volume-level vector. A final window anchored at the last
-slice guarantees full Z coverage when $D$ is not a multiple of the stride.
-Overlapping windows make the descriptor robust to where structures fall relative
-to window boundaries. Rather than encoding one window at a time, we stack $8$
+descriptors into one volume-level vector. Windows are emitted at
+$z=0,8,16,\dots$ for as long as $z+16\le D$; if the last such window does not
+reach the final slice, we append one additional window \emph{shifted} to occupy
+$[D-16,\,D)$. The tail window is therefore anchored to the end of the volume and
+simply overlaps its predecessor by more than $8$ slices -- no zero- or
+edge-padding is used, and no slice is dropped. Padding is applied only in the
+degenerate case $D<16$, where the volume is extended to $16$ slices by
+replicating its last slice (\texttt{mode=edge}). Overlapping windows make the
+descriptor robust to where structures fall relative to window boundaries. Rather than encoding one window at a time, we stack $8$
 windows into a single GPU batch, which uses the device far more efficiently and
 speeds up per-case feature extraction.
 
@@ -361,9 +421,12 @@ For an ROI target we read the provided mask, find the Z-range where the mask is
 active, expand it by $\pm 8$ context slices, crop the volume to that range, and
 then apply the same windowed aggregation. This focuses the descriptor on the
 organ of interest (e.g.\ adrenal gland for \emph{adrenal\_hyperplasia}) while
-retaining peri-organ context. Cropping also leaves fewer $16$-slice windows to
-pass through the ViT, which lowers per-case compute and runtime. If a mask is
-empty we fall back to the global descriptor.
+retaining peri-organ context. If the padded mask range spans fewer than $16$
+slices, it is re-centred on its own midpoint and widened to exactly $16$ slices
+(clipped to the volume), so that at least one full window is always available.
+Cropping also leaves fewer $16$-slice windows to pass through the ViT, which
+lowers per-case compute and runtime. If a mask is empty we fall back to the
+global descriptor.
 
 \paragraph{Linear-probe head.}
 The container emits only frozen $1024$-d features; per challenge protocol, the
@@ -372,14 +435,30 @@ replicate the standard LP recipe: $L_2$-normalize each descriptor and fit a
 per-target $\ell_2$-regularized logistic regression with
 \emph{class-balanced} weighting (to counter the severe positive/negative
 imbalance), sweeping the inverse regularization strength
-$C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$ and selecting by validation AUROC.
-A linear probe has no capacity to compensate for a weak backbone, which is
-exactly why it is a faithful probe of feature quality.
+$C\in\{10^{-3},10^{-2},10^{-1},1,10,10^{2}\}$. Balanced accuracy is computed by
+thresholding the predicted positive probability at $0.5$; because the
+organizer-provided validation split is exactly class-balanced
+(Sec.~\ref{sec:data}), balanced accuracy there coincides with plain accuracy.
+
+Two properties of this internal recipe must be stated plainly, because they bound
+how the numbers in Sec.~\ref{sec:valres} should be read. First, $C$ is selected
+\emph{by validation AUROC on the same split that we then report}, and the
+checkpoint (Sec.~\ref{sec:protocols}) is selected the same way; we did not hold
+out a separate split or use nested cross-validation. The reported per-target
+values are therefore selection-optimistic upper bounds rather than unbiased
+estimates of held-out performance, and the bias is largest for the targets with
+the smallest $n_\text{val}$ ($52$--$266$ cases). Second, the official score is
+produced by the organizers' own probe on their own split, not by this recipe;
+ours exists only to rank our candidate checkpoints. Sec.~\ref{sec:valtest}
+quantifies how much of the validation-to-test difference this optimism can
+account for. A linear probe has no capacity to compensate for a weak backbone,
+which is exactly why it is a faithful probe of feature quality.
 
 % ======================================================================
 \section{Experiments}
 
 \subsection{Dataset and evaluation metrics}
+\label{sec:data}
 The challenge provides a large-scale unlabeled CT pre-training set and a
 downstream train/validation set of \textbf{$17$ binary classification targets
 across three datasets}, spanning abdomen and chest. For Task~1 we enter the
@@ -389,6 +468,23 @@ targets -- $11$ ROI and $4$ non-ROI; the two additional official targets are
 chest findings (a COVID-CT target and a lung-nodule-malignancy target) that are
 absent from our local split, so all internally reported per-disease numbers are
 \emph{abdominal}.
+
+\paragraph{Train/validation split.}
+We did not construct the split. Each target ships as a per-target label CSV with
+a \texttt{case\_id}, a binary label and a \texttt{split} column, and we use that
+\texttt{train}/\texttt{val} partition verbatim; no case is moved, resampled or
+re-stratified, and no pre-training volume appears in it (pre-training uses the
+separate unlabeled corpus). The partition is target-specific, so the number of
+cases differs per target: $576$--$1107$ training and $52$--$266$ validation cases
+(the $n_\text{val}$ column of Table~\ref{tab:results-lp}). Two properties of this
+partition matter for interpreting our numbers. The \emph{validation} partition is
+exactly class-balanced -- precisely $50\%$ positives for all $15$ targets, by
+construction of the released split -- which is why we describe it as the
+``class-balanced AMOS-15'' split and why balanced accuracy equals accuracy there.
+The \emph{training} partition instead carries the natural prevalence, ranging
+from $6.4\%$ positives (splenomegaly) to $50\%$ (liver cyst, renal cyst); this is
+the imbalance that the class-balanced logistic-regression weighting is there to
+counter.
 
 \noindent\textbf{Classification metrics.}
 \emph{Balanced accuracy} (mean of sensitivity and specificity), robust to
@@ -434,6 +530,7 @@ Key libraries     & nibabel, h5py, timm, iopath, numpy \\ \hline
 \end{table}
 
 \subsubsection{Training protocols.}
+\label{sec:protocols}
 \textbf{(1) Data augmentation.} During pre-training, augmentations are applied
 consistently across all $16$ slices of a clip: random horizontal flip ($p{=}0.5$),
 vertical flip ($p{=}0.5$), random $90/180/270^{\circ}$ axial rotation, random
@@ -445,9 +542,28 @@ $[0,1]$. Inference uses no augmentation (no test-time augmentation).
 Repeat-augmentation ($\times4$) replicates each sampled clip into four
 independently augmented views per iteration, so an optimizer step sees $96$
 augmented samples spanning the $24$ unique clips of the effective batch.
-\textbf{(3) Model selection.} We extract features at candidate checkpoints
-(epochs $40$ and $130$) and select by internal validation mean AUROC; epoch
-$130$ was submitted.
+\textbf{(3) Stopping criterion.} There was none in the usual sense: no
+validation signal was used to stop pre-training, because the pretext objective
+is unsupervised and no downstream labels enter the pre-training loop. The run was
+scheduled for $250$ epochs with a checkpoint written every $10$ epochs, and was
+stopped manually after epoch $134$ once the epoch-mean masked-patch MSE had been
+flat for ${\sim}50$ epochs ($8.6$--$9.0\times10^{-4}$, Fig.~\ref{fig:curve}
+inset) and the remaining challenge compute budget was better spent on
+feature extraction. The schedule was therefore truncated, not completed: the
+cosine decay was still at $5.4\times10^{-5}$ rather than $0$ when the run ended,
+so the final checkpoint is a converged-plateau checkpoint and not a
+fully-annealed one.
+\textbf{(4) Checkpoint selection.} The two checkpoints we evaluated were epoch
+$40$, which is exactly the end of the $40$-epoch linear warm-up and the earliest
+point at which the learning rate has peaked, and epoch $130$, the last
+checkpoint written before the run was stopped. We extracted features for both and
+selected by internal validation mean AUROC; epoch $130$ won and was submitted.
+We did not sweep the intermediate checkpoints, so epoch $130$ is the better of
+two candidates rather than an optimum over the thirteen available. Note also
+that this selection uses the same split that Table~\ref{tab:results-lp} reports,
+and contributes to the optimism discussed in Sec.~\ref{sec:inference}; the
+epoch-$40$ checkpoint scores $0.646$ mean AUROC on this split, against $0.678$ at
+epoch $130$ (Sec.~\ref{sec:ablation}).
 
 Table~\ref{table:training-lp} gives the full pre-training and linear-head
 protocol.
@@ -465,7 +581,8 @@ reconstruction loss (inset: last $50$ epochs, $\sim\!9\times10^{-4}$); the dashe
 line marks the submitted epoch-$130$ checkpoint. \textbf{Bottom:} the per-epoch
 learning rate -- linear warm-up over $40$ epochs to $9.4\times10^{-5}$ followed by
 cosine decay (linear-scaling rule, effective batch $24$). Training ran to
-epoch $133$ of $250$ scheduled and was stopped on the converged plateau; axes
+epoch $134$ of $250$ scheduled and was stopped on the converged plateau
+(Sec.~\ref{sec:protocols}); the last checkpoint written was epoch $130$. Axes
 are cropped to the trained range.}
 \label{fig:curve}
 \end{figure}
@@ -495,14 +612,18 @@ Number of model parameters      & $303.6$\,M (frozen encoder) \\ \hline
 \end{table*}
 
 \subsection{Quantitative results on the validation set}
+\label{sec:valres}
 
 \paragraph{Validation performance.}
 Under the frozen-LP protocol, MAE-ST attains a validation \textbf{mean AUROC of
 $0.678$} (mean balanced accuracy $0.638$) over the $15$ AMOS abdominal targets.
-This is higher than the $17$-target \emph{test} AUROC ($0.624$,
-Sec.~\ref{sec:test}) because the official test set additionally averages in two
-chest findings (COVID, lung-nodule malignancy) that are absent from our internal
-validation split.
+This figure is higher than the $17$-target \emph{test} AUROC ($0.624$,
+Sec.~\ref{sec:test}), and it should be read as a selection-optimistic internal
+estimate rather than as a prediction of test performance: both the checkpoint and
+the per-target $C$ were chosen on this split (Sec.~\ref{sec:inference}), and the
+split differs from the official test set in both composition and anatomy.
+Sec.~\ref{sec:valtest} decomposes the difference; the two unseen chest targets
+account for well under half of it.
 
 \paragraph{Per-disease validation detail.}
 Table~\ref{tab:results-lp} reports per-target AUROC and balanced accuracy on the
@@ -515,9 +636,15 @@ ROI and non-ROI targets are nearly tied ($0.685$ vs.\ $0.660$ mean AUROC).
 
 \begin{table}[htbp]
 \caption{Task~1 LP \textbf{All-Data}, \textbf{validation set}. Per-disease AUROC
-and balanced accuracy on the class-balanced AMOS-15 internal validation split
-(MAE-ST, epoch-130 submitted checkpoint; $303.6$\,M params). Targets sorted by
-AUROC; $n_\text{val}$ is the number of balanced validation cases.}
+and balanced accuracy on the organizer-provided, exactly class-balanced AMOS-15
+validation split (MAE-ST, epoch-130 submitted checkpoint; $303.6$\,M params).
+Targets sorted by AUROC; $n_\text{val}$ is the number of validation cases, of
+which exactly half are positive. \emph{These are selection-optimistic values,
+not held-out estimates}: the checkpoint and the per-target $C$ were both chosen
+by AUROC on this same split (Sec.~\ref{sec:inference}), with no separate
+held-out split, no nested cross-validation and no confidence intervals. Balanced
+accuracy is at a fixed $0.5$ probability threshold and, on a balanced split,
+equals accuracy.}
 \label{tab:results-lp}
 \centering
 \begin{tabular}{llccc}
@@ -547,44 +674,80 @@ non-ROI ($4$)        &         & 0.660 & 0.637 & 4  \\ \hline
 \subsection{Ablation study}
 \label{sec:ablation}
 
-\paragraph{Submitted recipe vs.\ baseline.}
-Table~\ref{tab:ablation} compares the submitted MAE-ST recipe against an
-ablated baseline that differs in nine training choices simultaneously
-(dynamic vs.\ fixed $90\%$ mask, raw-pixel vs.\ per-patch-normalized
-reconstruction target, coarse vs.\ fine temporal patch, decoder depth,
-repeated augmentation, base learning rate, gradient clipping,
-warmup/training length, and an expanded augmentation pipeline). The full
-recipe gains $+0.051$ AUROC ($0.627 \to 0.678$),
-improving $12$ of $15$ targets. The largest per-target gains are on
-organ-scale findings: splenomegaly $0.663\!\to\!0.841$ ($+0.178$),
-liver calcifications $0.440\!\to\!0.603$ ($+0.163$, rescued from
-below chance), and atherosclerosis $0.493\!\to\!0.612$ ($+0.119$, raised
-above chance). Because the two configurations differ on nine
-axes, we cannot isolate the contribution of any single change from this
-comparison; per-axis attribution -- in particular for dynamic masking and
-the raw-pixel loss target, which we expect to be major drivers -- is left
-for follow-up work.
+\paragraph{Submitted recipe vs.\ an earlier configuration.}
+Table~\ref{tab:ablation} compares the submitted MAE-ST recipe against our
+earlier internal configuration (``v1''). This is a \emph{recipe-level} comparison
+and nothing finer: the two runs differ in \textbf{eleven} settings simultaneously,
+enumerated in the lower panel of Table~\ref{tab:ablation}, spanning the masking
+distribution, the tokenization and temporal prediction target, the decoder, the
+reconstruction target, the optimizer schedule and gradient clipping, the training
+length, the effective batch size and the augmentation pipeline (including
+repeated augmentation).
+The full recipe gains $+0.051$ AUROC ($0.627 \to 0.678$), improving $12$ of $15$
+targets. The largest per-target gains are on organ-scale findings: splenomegaly
+$0.663\!\to\!0.841$ ($+0.178$), liver calcifications $0.440\!\to\!0.603$
+($+0.163$, rescued from below chance), and atherosclerosis
+$0.493\!\to\!0.612$ ($+0.119$, raised above chance).
 
+We want to be explicit about what this comparison does \emph{not} establish.
+Because eleven settings move together -- including training length ($100$
+epochs versus $134$ of a $250$-epoch schedule), the base learning rate, the
+warm-up length, the reconstruction target and the gradient-clipping threshold, each of which alone can move a frozen-feature mean AUROC -- the
+experiment licenses only the aggregate statement that the submitted recipe is
+better than v1 by $0.051$ on this split. It licenses no statement about dynamic
+masking, about the coarse temporal patch, or about any other individual setting,
+and the $+0.051$ should not be read as the effect of the design choices
+highlighted in the abstract and in Sec.~\ref{sec:intro-contrib}. Single-factor
+runs -- at minimum fixed $0.9$ versus $\mathcal{U}[0.6,0.9]$ and $t_p{=}2$ versus
+$t_p{=}4$ on a short, matched schedule -- are what would be needed, and they
+did not fit the challenge timeline (Sec.~\ref{sec:limitations}). One partial
+check on training length is available: the epoch-$40$ checkpoint of the
+submitted run already scores $0.646$, above v1 after its full $100$ epochs
+($0.627$), so the gain is not explained by longer training alone. The further
+$+0.032$ from epoch $40$ to $130$ is confounded with the learning-rate schedule
+(epoch $40$ is the warm-up peak), so we do not read it as a pure
+training-length effect either.
+
+% ----------------------------------------------------------------------
+% ABLATION TABLE SOURCE. Both columns are read from the args saved inside
+% the checkpoints: v1 = job 15124346, checkpoints/ct_maest_pretrain/
+% checkpoint-00099.pth (12 GPUs); v2 = job 15326473 (3 GPUs). Both runs use
+% a class token and FP32, so those are NOT differences. Augmentation row for
+% v1 is from PROJECT_STATUS.md. The runs also used different file lists
+% (train_files.txt vs flare_train_files.txt) -- not listed as a difference
+% pending a check that their contents differ.
+% ----------------------------------------------------------------------
 \begin{table}[htbp]
-\caption{Ablation: submitted MAE-ST recipe vs.\ an ablated baseline (AMOS-15
-internal validation, mean AUROC). The two configurations differ in nine
-training choices listed below; per-design-choice attribution requires further
-runs (Sec.~\ref{sec:limitations}).}\label{tab:ablation}
+\caption{Recipe-level ablation: submitted MAE-ST recipe vs.\ our earlier
+configuration ``v1'' (AMOS-15 internal validation, mean AUROC). The lower panel
+enumerates \emph{all eleven} settings in which the two runs differ. Because they
+move together, this table attributes the $+0.051$ to the recipe as a whole and
+to no individual row; per-setting attribution requires one-change-at-a-time runs
+(Sec.~\ref{sec:limitations}).}\label{tab:ablation}
 \centering
 \begin{tabular}{lc}
 \hline
 Configuration & Mean AUROC \\ \hline
-Ablated baseline & 0.627 \\
-\textbf{MAE-ST submitted (ep130)} & \textbf{0.678} \\ \hline
-\multicolumn{2}{l}{\footnotesize \textbf{Differences} (baseline $\rightarrow$
-submitted):
-mask $0.9 \to \mathcal{U}[0.6,0.9]$;} \\
-\multicolumn{2}{l}{\footnotesize loss target per-patch-normalized $\to$ raw
-pixels; $t_p\ 2 \to 4$; decoder depth $4 \to 8$;} \\
-\multicolumn{2}{l}{\footnotesize repeat-aug $1 \to 4$;
-blr $1.5{\times}10^{-4} \to 10^{-3}$; clip-grad $0.02 \to 1.0$;} \\
-\multicolumn{2}{l}{\footnotesize warmup $10 \to 40$ ep; total $100 \to 250$ ep;
-augmentation pipeline expanded.} \\ \hline
+MAE-ST v1 (earlier configuration)   & $0.627$ \\
+\textbf{MAE-ST submitted (ep130)}   & $\mathbf{0.678}$ \\
+\textbf{Difference}                 & $\mathbf{+0.051}$ \\ \hline
+\end{tabular}
+
+\vspace{1.2ex}
+\begin{tabular}{llll}
+\hline
+\# & Setting & v1 & Submitted \\ \hline
+1  & Mask ratio            & fixed $0.9$              & $\mathcal{U}[0.6,0.9]$ per step \\
+2  & $t_p$ / predicted slices & $2$ / $8$ ($1568$ tokens) & $4$ / $16$ ($784$ tokens) \\
+3  & Decoder depth         & $4$ blocks               & $8$ blocks \\
+4  & Loss target           & per-patch normalized     & raw pixels \\
+5  & Base lr (blr)         & $1.5{\times}10^{-4}$     & $10^{-3}$ \\
+6  & Warm-up               & $10$ epochs              & $40$ epochs \\
+7  & Scheduled epochs      & $100$ (completed)        & $250$ (stopped at $134$) \\
+8  & Gradient clipping     & $0.02$                   & $1.0$ \\
+9  & Augmentation          & h-flip only              & flips, rot., intensity, noise \\
+10 & Repeated augmentation & $\times1$               & $\times4$ \\
+11 & Effective batch       & $96$ ($12$ GPU)          & $24$ ($3$ GPU) \\ \hline
 \end{tabular}
 \end{table}
 
@@ -607,10 +770,12 @@ Table~\ref{tab:leaderboard} reports the official final-test ranking for the
 Task~1 LP All-Data track. Our team (\textbf{maest}) places $4^{\text{th}}$ on the
 published leaderboard (top six shown)
 with $0.600$ balanced accuracy and $0.624$ AUROC at $6.27$\,s/case -- the
-second-fastest runtime among the top four and roughly $5\times$ faster than the
+third-fastest runtime among the top four (behind raidium at $4.39$\,s and cemrg
+at $4.47$\,s, ahead of fomofo at $9.41$\,s) and roughly $5\times$ faster than the
 slowest valid entry. The leading cluster (fomofo / raidium / cemrg) sits at
-$0.705$--$0.714$ AUROC; we attribute most of the gap to cross-region (chest)
-generalization (Sec.~\ref{sec:limitations}).
+$0.705$--$0.714$ AUROC; cross-region (chest) generalization accounts for only
+part of that gap, and Sec.~\ref{sec:valtest} shows that the remainder sits on
+the abdominal targets.
 
 \begin{table}[htbp]
 \caption{Official final-test ranking, Task~1 LP \textbf{All-Data} track ($17$
@@ -621,7 +786,7 @@ container start-up.}\label{tab:leaderboard}
 \hline
 Rank & Team & Balanced Acc & AUROC & Runtime (s) \\ \hline
 1 & fomofo            & 0.654 & 0.714 & 9.414 \\
-1 & raidium           & 0.639 & 0.707 & 4.393 \\
+2 & raidium           & 0.639 & 0.707 & 4.393 \\
 3 & cemrg             & 0.643 & 0.705 & 4.467 \\
 \textbf{4} & \textbf{maest (ours)} & \textbf{0.600} & \textbf{0.624} & \textbf{6.273} \\
 5 & xupy              & 0.566 & 0.599 & 10.860 \\
@@ -629,40 +794,140 @@ Rank & Team & Balanced Acc & AUROC & Runtime (s) \\ \hline
 \end{tabular}
 \end{table}
 
+\subsection{Accounting for the validation-to-test difference}
+\label{sec:valtest}
+Our internal estimate ($0.678$ over $15$ abdominal targets) and the official
+score ($0.624$ over $17$) differ by $0.054$ AUROC. It is tempting to charge the
+whole difference to the two chest targets our encoder never saw. The arithmetic
+does not support it.
+
+We take the official score to be an unweighted mean over the $17$ targets. The
+aggregation rule is not stated in the public challenge materials: the released
+evaluation code computes the metrics for each target independently and writes
+one row per target without combining
+them,\footnote{\url{https://github.com/kmin940/CVPR26-3DCTFMCompetition}
+(\texttt{cvpr26\_eval\_metrics-dev.py},
+\texttt{cvpr26\_organize\_eval\_metrics\_and\_predictions.py}); the leaderboard
+scoring program is not published.} while the leaderboard reports a single
+balanced accuracy and AUROC per team, so the per-target values must be averaged
+somewhere in the scoring program. A macro mean over targets is the reading
+consistent with that code and with how other entrants describe their own scores.
+The conclusion below does not depend on the choice: under a sample-weighted mean
+instead -- using our local validation case counts to estimate the chest share of
+the test set at ${\approx}14\%$ -- the two chest targets would need $0.290$ AUROC
+to absorb the whole difference, and the implied abdominal shortfall is $0.034$
+rather than $0.037$.
+
+Under the macro reading, if abdominal performance had carried over unchanged at
+$0.678$, the two chest targets would have to average
+$(17{\times}0.624 - 15{\times}0.678)/2 = 0.219$ AUROC -- far below chance, which
+a frozen reconstructive encoder and a class-balanced linear probe will not
+produce. Running the calculation in the other direction is more informative. A
+plausible ceiling on our chest performance is chance ($0.500$), since neither
+chest dataset contributes to pre-training and neither appears in our internal
+split; at that value the abdominal targets must themselves have scored
+$(17{\times}0.624 - 2{\times}0.500)/15 = 0.641$ on test, i.e.\ $0.037$ below our
+internal estimate. Table~\ref{tab:gap} tabulates the implied abdominal test mean
+across chest assumptions. Chest-at-chance alone accounts for only $0.021$ of the
+$0.054$ -- under $40\%$ of it -- and the more credible our chest performance, the
+larger the unexplained abdominal shortfall becomes.
+
+\begin{table}[htbp]
+\caption{Implied abdominal test performance as a function of the (unreleased)
+chest result, assuming the official score is an unweighted mean over $17$
+targets. ``Shortfall'' is our internal $0.678$ minus the implied abdominal test
+mean. The first row is the scenario in which the gap is \emph{entirely} due to
+chest; it requires far-below-chance chest AUROC and is not credible.}
+\label{tab:gap}
+\centering
+\begin{tabular}{lcc}
+\hline
+Assumed chest-2 mean AUROC & Implied abdominal-15 test mean & Shortfall \\ \hline
+$0.219$ (gap is all chest) & $0.678$ & $0.000$ \\
+$0.500$ (chance)           & $0.641$ & $0.037$ \\
+$0.550$                    & $0.634$ & $0.044$ \\
+$0.600$                    & $0.627$ & $0.051$ \\ \hline
+\end{tabular}
+\end{table}
+
+So a residual of roughly $0.03$--$0.05$ AUROC sits on the abdominal targets
+themselves, and we attribute it to three causes we cannot separate with the
+information released to us. First, \emph{selection optimism}: the checkpoint and
+every per-target $C$ were chosen by AUROC on the same split we report
+(Sec.~\ref{sec:inference}), on $52$--$266$ cases per target, which inflates
+$0.678$ by an amount we did not measure. Second, \emph{probe mismatch}: the
+official number comes from the organizers' probe on the organizers' split, whose
+regularization, thresholding and normalization need not match our internal
+recipe. Third, \emph{distribution shift} between the released
+train/validation partition and the held-out test cases. Apportioning the
+residual among these three requires per-target test scores, or at least an
+abdominal-only test mean; the organizers released neither, so we report the
+decomposition as a bound rather than a measurement. We flag this because it
+changes the reading of the headline numbers: $0.678$ is an internal
+model-selection score, and $0.624$ is the only externally validated result in
+this report.
+
 \subsection{Limitations and future work}
 \label{sec:limitations}
-Our encoder is pre-trained on a predominantly
-abdominal corpus and never sees the two chest targets in local validation;
-closing the gap to the leaderboard leaders ($\sim\!0.09$ mean AUROC) likely
-requires chest-CT pre-training data and region-balanced sampling. A single
-mean-pooled descriptor is a strong but blunt
-summary; attention pooling or multi-layer feature concatenation may recover
-focal-lesion signal lost to averaging. We resize every volume to $224\times224$
-in-plane and treat the $Z$ axis as time, discarding native pixel spacing in all
-three axes; the model therefore never sees true physical scale. Spacing-aware
-positional encodings or isotropic resampling that preserves the original $x$,
-$y$, and $z$ resolution are natural extensions. Internal results are single-seed
-on a small validation split;
-multi-seed pre-training and bootstrap confidence intervals would tighten the
-claims. Finally, our ablation contrasts the submitted recipe with
-a single all-changes-flipped baseline; per-axis attribution requires
-one-change-at-a-time runs that did not fit the challenge timeline.
+\emph{Evaluation.} The clearest weakness is that our internal evaluation is
+also our model-selection procedure. Checkpoint and per-target $C$ are both
+chosen by AUROC on the split we report (Sec.~\ref{sec:inference}), on as few as
+$52$ validation cases, so Table~\ref{tab:results-lp} is an optimistic upper
+bound of unknown tightness, with no confidence intervals and a single
+pre-training seed. The fix is cheap and does not need new pre-training: select
+$C$ by nested cross-validation inside the training partition, keep the
+validation partition untouched for reporting, and attach bootstrap intervals to
+each per-target AUROC. We recommend any follow-up adopt that protocol before
+comparing backbones, and we report the organizers' $0.624$ as the only
+externally validated number here.
+
+\emph{Attribution.} Our ablation contrasts the submitted recipe with a single
+configuration that differs in eleven settings at once (Table~\ref{tab:ablation}),
+so it supports no per-setting claim. The minimum useful follow-up is three short
+matched runs -- fixed $0.9$ versus $\mathcal{U}[0.6,0.9]$, $t_p{=}2$ versus
+$t_p{=}4$, and the submitted recipe at a matched epoch budget -- which together
+would separate the masking distribution, the tokenization and the effect of
+simply training longer; the epoch-$40$ checkpoint ($0.646$,
+Sec.~\ref{sec:ablation}) bounds the last only partially.
+These did not fit the challenge timeline.
+
+\emph{Generalization and representation.} Our encoder is pre-trained on a
+predominantly abdominal corpus and never sees the two chest targets in local
+validation. Chest-CT pre-training data and region-balanced sampling remain the
+obvious remedy, but Sec.~\ref{sec:valtest} shows that cross-region transfer
+accounts for well under half of our validation-to-test difference and therefore
+for only part of the $\sim\!0.09$ mean-AUROC gap to the leaderboard leaders; the
+remainder sits on abdominal targets. A single mean-pooled descriptor is a strong
+but blunt summary; attention pooling or multi-layer feature concatenation may
+recover focal-lesion signal lost to averaging -- consistent with our weakest
+targets being focal and cystic (Table~\ref{tab:results-lp}). We resize every
+volume to $224\times224$ in-plane and treat the $Z$ axis as time, discarding
+native pixel spacing in all three axes; the model therefore never sees true
+physical scale. Spacing-aware positional encodings or isotropic resampling that
+preserves the original $x$, $y$, and $z$ resolution are natural extensions.
 
 % ======================================================================
 \section{Conclusion}
 We framed a 3D CT volume as a short video and pre-trained a spatiotemporal masked
 autoencoder (MAE-ST, ViT-Large, $303.6$\,M parameters) from scratch on
-$10{,}819$ unlabeled CT volumes for the All-Data linear-probing track. A dynamic
-masking ratio and a coarse temporal patch yielded a frozen $1024$-d descriptor.
-Via overlapping-window aggregation and mask-guided ROI cropping, this descriptor
-achieved $0.678$ mean AUROC on our abdominal validation set and $0.600$ balanced
-accuracy / $0.624$ AUROC at $6.27$\,s/case on the final test set, ranking
-$4^{\text{th}}$ on the published All-Data LP leaderboard (top six shown). The main
-lesson is methodological: a purely reconstructive ViT with explicit
-through-plane modeling and a simple frozen-feature recipe is a competitive,
-fast, and reproducible CT foundation-model baseline, whose principal remaining
-weakness --- cross-region (chest) generalization --- chest-CT pre-training
-should directly address.
+$10{,}819$ unlabeled CT volumes for the All-Data linear-probing track. The
+recipe pairs a dynamic masking ratio with a coarse temporal patch and yields a
+frozen $1024$-d descriptor; via overlapping-window aggregation and mask-guided
+ROI cropping, that descriptor scored $0.600$ balanced accuracy / $0.624$ AUROC
+at $6.27$\,s/case on the official final test set, ranking $4^{\text{th}}$ on the
+published All-Data LP leaderboard (top six shown), with $0.678$ mean AUROC on our
+internal abdominal split. Because our ablation moves eleven settings together, we
+report the $+0.051$ it measures as a property of the recipe and claim no
+component-level effect for either design choice; and because that internal
+split also selected our checkpoint and regularization strength, we treat the
+$0.678$ as a selection-optimistic estimate and the organizers' $0.624$ as the
+externally validated result. The main lesson is methodological: a purely
+reconstructive ViT with explicit through-plane modeling and a simple
+frozen-feature recipe is a competitive, fast, and reproducible CT
+foundation-model baseline. Its remaining gap is not only cross-region
+generalization, which chest-CT pre-training should address, but also an
+abdominal-side shortfall (Sec.~\ref{sec:valtest}) that a leak-free selection
+protocol would have surfaced before submission.
 
 \subsubsection{Acknowledgements.}
 We thank the data owners for making the medical images publicly available and
