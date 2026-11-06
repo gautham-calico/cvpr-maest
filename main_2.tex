@@ -826,9 +826,11 @@ $0.678$, the two chest targets would have to average
 $(17{\times}0.624 - 15{\times}0.678)/2 = 0.219$ AUROC -- far below chance, which
 a frozen reconstructive encoder and a class-balanced linear probe will not
 produce. Running the calculation in the other direction is more informative. A
-plausible ceiling on our chest performance is chance ($0.500$), since neither
-chest dataset contributes to pre-training and neither appears in our internal
-split; at that value the abdominal targets must themselves have scored
+plausible floor on our chest performance is chance ($0.500$) -- a frozen encoder
+with a class-balanced probe should not do systematically worse -- and it is the
+most favourable case for the chest explanation, since neither chest dataset
+contributes to pre-training and neither appears in our internal split; at that
+value the abdominal targets must themselves have scored
 $(17{\times}0.624 - 2{\times}0.500)/15 = 0.641$ on test, i.e.\ $0.037$ below our
 internal estimate. Table~\ref{tab:gap} tabulates the implied abdominal test mean
 across chest assumptions. Chest-at-chance alone accounts for only $0.021$ of the
